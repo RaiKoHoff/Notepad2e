@@ -33,6 +33,7 @@
 #define ID_SAVEONLOSEFOCUS_DISABLED     57
 #define ID_SAVEONLOSEFOCUS_ENABLED 58
 #define ID_SAVEONLOSEFOCUS_ENABLEDUNTILANEWFILE 59
+#define IDM_FILE_ELEVATE                60
 #define IDR_MAINWND                     100
 #define IDC_FINDTEXT                    100
 #define IDC_LINENUM                     100
@@ -327,6 +328,7 @@
 #define IDM_EDIT_BASE64DECODE           40378
 #define IDM_EDIT_QPENCODE               40379  
 #define IDM_EDIT_QPDECODE               40380
+#define IDM_EDIT_INSERT_RANDOM          40381
 #define IDM_VIEW_SCHEME                 40400
 #define IDM_VIEW_USE2NDDEFAULT          40401
 #define IDM_VIEW_SCHEMECONFIG           40402
@@ -455,6 +457,7 @@
 #define IDS_ERR_SAVEAS                  50041
 #define IDS_ERR_SAVEAS_RENAME_DETAILS   50042
 #define IDS_WARN_ICU_REGEX              50043
+#define IDS_ERR_ELEVATE                 50044
 #define IDS_CMDLINEHELP                 60000
 
 // Next default values for new objects

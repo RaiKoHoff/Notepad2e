@@ -93,7 +93,7 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup>
-    <OutDir Condition="'$(Configuration)|$(Platform)'!='Release|Win32'">$(SolutionDir)bin\$(Platform)\$(Configuration)\</OutDir>
+    <OutDir>$(SolutionDir)bin\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>$(SolutionDir)bin\obj\$(Platform)\$(Configuration)\</IntDir>
     <LinkIncremental>false</LinkIncremental>
     <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
@@ -321,12 +321,17 @@
     <ClCompile Include="src\Dlapi.c" />
     <ClCompile Include="src\Edit.c" />
     <ClCompile Include="src\Extension\CommonUtils.c" />
-    <ClCompile Include="src\Extension\DPIHelper.c" />
+    <ClCompile Include="src\Extension\DPIHelper.cpp" />
+    <ClCompile Include="src\Extension\DPIHelperScintilla.c" />
     <ClCompile Include="src\Extension\EditHelper.c" />
     <ClCompile Include="src\Extension\EditHelperEx.cpp" />
     <ClCompile Include="src\Extension\ExtSelection.c" />
     <ClCompile Include="src\Extension\InlineProgressBarCtrl.c" />
+    <ClCompile Include="src\Extension\IPC\Event.c" />
+    <ClCompile Include="src\Extension\IPC\FileMapping.c" />
     <ClCompile Include="src\Extension\MainWndHelper.c" />
+    <ClCompile Include="src\Extension\ProcessElevationUtils.c" />
+    <ClCompile Include="src\Extension\Shell32Helper.c" />
     <ClCompile Include="src\Extension\StringRecoding.c" />
     <ClCompile Include="src\Extension\StrToBase64.c" />
     <ClCompile Include="src\Extension\StrToHex.c" />
@@ -410,12 +415,17 @@
     <ClInclude Include="src\Edit.h" />
     <ClInclude Include="src\Extension\CommonUtils.h" />
     <ClInclude Include="src\Extension\DPIHelper.h" />
+    <ClInclude Include="src\Extension\DPIHelperScintilla.h" />
     <ClInclude Include="src\Extension\EditHelper.h" />
     <ClInclude Include="src\Extension\EditHelperEx.h" />
     <ClInclude Include="src\Extension\ExtSelection.h" />
     <ClInclude Include="src\Extension\InlineProgressBarCtrl.h" />
+    <ClInclude Include="src\Extension\IPC\Event.h" />
+    <ClInclude Include="src\Extension\IPC\FileMapping.h" />
     <ClInclude Include="src\Extension\MainWndHelper.h" />
+    <ClInclude Include="src\Extension\ProcessElevationUtils.h" />
     <ClInclude Include="src\Extension\SciCall.h" />
+    <ClInclude Include="src\Extension\Shell32Helper.h" />
     <ClInclude Include="src\Extension\stdafx.h" />
     <ClInclude Include="src\Extension\StringRecoding.h" />
     <ClInclude Include="src\Extension\StrToBase64.h" />

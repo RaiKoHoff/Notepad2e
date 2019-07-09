@@ -109,7 +109,7 @@ BEGIN
             MENUITEM "UTF-8 with &Signature",       IDM_ENCODING_UTF8SIGN
             MENUITEM "&More...\tF9",                IDM_ENCODING_SELECT
             MENUITEM SEPARATOR
-            MENUITEM "&Recode...\tF8",              IDM_ENCODING_RECODE
+            MENUITEM "&Reload As...\tF8",           IDM_ENCODING_RECODE
             MENUITEM SEPARATOR
             MENUITEM "&Default...",                 IDM_ENCODING_SETDEFAULT
         END
@@ -127,6 +127,7 @@ BEGIN
         MENUITEM SEPARATOR
         MENUITEM "Propert&ies...",              IDM_FILE_PROPERTIES
         MENUITEM "Create &Desktop Link",        IDM_FILE_CREATELINK
+        MENUITEM "Ele&vate",                    IDM_FILE_ELEVATE
         MENUITEM SEPARATOR
         POPUP "&Favorites"
         BEGIN
@@ -221,6 +222,8 @@ BEGIN
             MENUITEM SEPARATOR
             MENUITEM "&Filename\tCtrl+F9",          IDM_EDIT_INSERT_FILENAME
             MENUITEM "&Path and Filename\tCtrl+Shift+F9", IDM_EDIT_INSERT_PATHNAME
+            MENUITEM SEPARATOR
+            MENUITEM "&Random\tCtrl+Alt+Shift+R",   IDM_EDIT_INSERT_RANDOM
         END
         POPUP "Spec&ial"
         BEGIN
@@ -244,8 +247,8 @@ BEGIN
         END
         POPUP "&Encode"
         BEGIN
-            MENUITEM "URL &Encode\tCtrl+Shift+E",   IDM_EDIT_URLENCODE
-            MENUITEM "URL &Decode\tCtrl+Alt+Shift+E", IDM_EDIT_URLDECODE
+            MENUITEM "URL Encode\tCtrl+Shift+E",    IDM_EDIT_URLENCODE
+            MENUITEM "URL Decode\tCtrl+Alt+Shift+E", IDM_EDIT_URLDECODE
             MENUITEM SEPARATOR
             MENUITEM "String To Hex\tAlt+Shift+A",  IDM_EDIT_STRING2HEX
             MENUITEM "Hex To String\tCtrl+Alt+Shift+A", IDM_EDIT_HEX2STRING
@@ -363,7 +366,7 @@ BEGIN
     POPUP "&?"
     BEGIN
         MENUITEM "&About...\tF1",               IDM_HELP_ABOUT
-        MENUITEM "&3rd Party Code...",          IDM_HELP_ABOUT_3RD_PARTY
+        MENUITEM "&3rd-Party Code...",          IDM_HELP_ABOUT_3RD_PARTY
     END
 END
 
@@ -482,6 +485,7 @@ BEGIN
     "R",            IDM_EDIT_UNESCAPECCHARS, VIRTKEY, CONTROL, ALT, NOINVERT
     "R",            ID_FILE_INVOKESHELLMENU, VIRTKEY, SHIFT, CONTROL, NOINVERT
     "R",            IDM_EDIT_URLDECODE,     VIRTKEY, SHIFT, CONTROL, NOINVERT
+    "R",            IDM_EDIT_INSERT_RANDOM, VIRTKEY, SHIFT, CONTROL, ALT, NOINVERT
     "S",            IDM_FILE_SAVE,          VIRTKEY, CONTROL, NOINVERT
     "S",            IDM_EDIT_CONVERTTABS2,  VIRTKEY, CONTROL, ALT, NOINVERT
     "S",            IDM_EDIT_CONVERTTABS,   VIRTKEY, SHIFT, CONTROL, NOINVERT
@@ -1050,7 +1054,7 @@ END
 
 IDD_RECODE DIALOGEX 0, 0, 165, 135
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "Recode"
+CAPTION "Reload As"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
     LTEXT           "Select source &encoding to reload file:",IDC_STATIC,7,7,119,8
@@ -1088,7 +1092,7 @@ END
 
 IDD_ABOUT_3RD_PARTY DIALOGEX 0, 0, 339, 141
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | DS_NOFAILCREATE | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "3rd Party Code"
+CAPTION "3rd-Party Code"
 FONT 8, "MS Shell Dlg", 0, 0, 0x0
 BEGIN
     ICON            IDR_MAINWND,-1,7,7,20,20
@@ -1487,6 +1491,7 @@ BEGIN
     IDS_ERR_SAVEAS_RENAME_DETAILS 
                             "\n\nIf you were trying to rename it into a different character case, this would not work due to Windows Save File Dialog limitation (#140). To work around this, do two renames using a temporary file name."
     IDS_WARN_ICU_REGEX      "Regular expressions in Notepad 2e-ICU can only work on Unicode buffers. Convert this file to UTF-8?\r\n\r\nNon-ICU versions of Notepad 2e do not have this limitation."
+    IDS_ERR_ELEVATE         "Failed to run elevated instance."
 END
 
 STRINGTABLE
@@ -1640,6 +1645,7 @@ BEGIN
     63032                   "YAML"
     63033                   "Rust"
     63034                   "Markdown"
+    63035                   "Awk Script"
 END
 
 STRINGTABLE

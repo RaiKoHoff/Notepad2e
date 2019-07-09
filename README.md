@@ -14,21 +14,24 @@ For those of you who are unfamiliar with *Notepad2*:
 
 Some folks use it to replace the standard `Notepad.exe` of Windows.
 
+It's also part of [TortoiseGit](https://tortoisegit.org).
+
 **License:** *Notepad2* uses 3-clause BSD license. *Notepad 2e* follows the same license.
 
 ## Downloads
+
 Stable versions are available via [GitHub releases](https://github.com/ProgerXP/Notepad2e/releases).
 
-Non-stable daily builds are available from [this page](http://proger.me/notepad2e/binaries/).
+Archived non-stable daily builds are available from [this page](http://proger.me/notepad2e/binaries/).
 
-Latest non-stable x86/non-ICU build is available from [here](http://proger.me/notepad2e/binaries/LATEST).
+Latest non-stable x86/non-ICU build is permanently available by [this URL](http://proger.me/notepad2e/binaries/LATEST).
 
 ## Compilation
 
 1. [Prepare Boost environment](https://github.com/ProgerXP/Notepad2e/blob/master/doc/BoostSetup.md).
     * you will get `libboost_regex-vc141-mt-s-x32-1_68.lib`, `libboost_regex-vc141-mt-s-x64-1_68.lib` in `%BOOST_ROOT%\stage\lib`
 2. If you are going to build ICU configurations, [prepare ICU too](https://github.com/ProgerXP/Notepad2e/blob/master/doc/ICUBuild.md). #162
-    * you will get the 2 Boost libs above in `%BOOST_ROOT_ICU%\stage\lib` and also `icuregex64.lib`, `icuregex86.lib`
+    * you will get the 2 Boost libraries above in `%BOOST_ROOT_ICU%\stage\lib` and also `icuregex64.lib`, `icuregex86.lib`
 3. The project comes with a "hacked" Scintilla; if you wish to use the original Scintilla, [read this changelog](https://github.com/ProgerXP/Notepad2e/blob/master/doc/Scintilla_ChangeLog.md).
 4. To compile the sources, use Visual Studio 2015 or 2017. #178
 5. To run tests (`Notepad2eTests`), point `FileSamplesPath` environment variable to the `...\test\data\Extension` directory. #178
@@ -72,7 +75,7 @@ The following locations are checked for an existing INI file, in order:
     * If this key is non-existing or blank, the previously found INI is used
     * Else, if the value is an absolute path (`%env%` vars expanded) to an existing file - it's used as the INI
     * Else, if the path is relative (`%env%` vars expanded) - it's searched in the same folders as `PROGRAM.ini` (above) and used, if found
-    * Else, if the key was not blank and no INI was found - the value is used as the (new, non-existing) INI file path (prepended with program's dir if relative)
+    * Else, if the key was not blank and no INI was found - the value is used as the (new, non-existing) INI file path (prepended with program's directory if relative)
 
 If the located INI path (`PATH` below) is a directory rather than a file or it ends with `\` then:
 
@@ -87,7 +90,7 @@ The `[NEW]` mark indicates a new major feature introduced by *Notepad 2e*. Items
 
 ### [NEW] Current Word Highlighting
 Word under cursor is highlighted in one of 3 modes: #27 #1
-1. One occurrence in the document. Indispensible to spot typos.
+1. One occurrence in the document. Indispensable to spot typos.
 2. Two or more occurrences but all are visible on the screen.
 3. Multiple occurrences with some hidden under the scrollbar.
 
@@ -105,7 +108,7 @@ Allows simultaneous editing of all occurrences of the same string as the selecti
 
 **Note:** when selection is empty, this mode affects word near the cursor, and finds other substrings case-insensitively. When selection is non-empty - case-sensitive search is performed, and word boundaries are not checked.
 
-This mode allows easy renaming of varaibles, typo corrections and so on.
+This mode allows easy renaming of variables, typo corrections and so on.
 
 Below, with cursor within `foo` pressing **Ctrl+Tab** will enter this mode and any change you do (such as typing `bar`) will edit all of the three `foo`s at the same time:
 
@@ -181,6 +184,12 @@ File > Open Previous (**Alt+G**) command lets you toggle between two most recent
 
 ![Alt+G - Open Previous](https://github.com/ProgerXP/Notepad2e/raw/master/doc/gif/open-prev.gif)
 
+File > History (**Alt+H**) now pre-selects the target for **Alt+G**: #209
+* first item - if current document is not saved ("Untitled")
+* second item - in other cases
+
+This allows faster list navigation skipping first and second items (which are directly accessible via **F5** and **Alt+G**).
+
 ### [NEW] Open By Prefix
 Open Dialog allows opening by prefix - so instead of typing the full file name or selecting a file with your mouse you can only type the name's beginning and hit Enter (or click Open) to open the first matching file. #19
 
@@ -238,7 +247,7 @@ When saving, if the given new file name ends on period then the file is saved wi
 
 ### Go To (Ctrl+G)
 * Extracts first number from Line and Column instead of requiring a strictly numeric value. For example, `abc567.89` navigates to 567. #14
-* **[NEW]** Navigation by absolute Offset in the buffer. Respects different charsets to the best effort possible. Value is normalized: #2
+* **[NEW]** Navigation by absolute Offset in the buffer. Respects different character sets to the best effort possible. Value is normalized: #2
   1. Leading symbols that are not `0-9 A-Z a-z` are removed.
   2. If remainder consists of `0-9` then use it as a decimal offset and return.
   3. Remove possible leading `0x` and/or `h`.
@@ -256,7 +265,8 @@ When saving, if the given new file name ends on period then the file is saved wi
 ![Ctrl+Alt+L - Open Folder](https://github.com/ProgerXP/Notepad2e/raw/master/doc/gif/open-folder.gif)
 
 ### Line Selection Hotkeys
-Due to their accidental nature, disabled triple-click and triple-**Ctrl+Space** Scintilla behaviour that previously caused selection of the entire line. Full line can still be selected with standard **Ctrl+Shift+Space** hotkey, or by clicking on the line number.
+* Triple-click and triple-**Ctrl+Space** in Scintilla select entire line. Due to their accidental nature they are disabled in *Notepad 2e*. Full line can still be selected with standard **Ctrl+Shift+Space** hotkey or by clicking on the line number (gutter).
+* Single **Ctrl+Space** now selects closest word on the right, ignoring non-word symbols before it. If there is none, entire line sans leading whtiespace is selected. #205
 
 ### Line Gutter
 * Default gutter style was changed from `size:-2;fore:#ff0000` to `size:-1`.
@@ -272,6 +282,8 @@ Due to their accidental nature, disabled triple-click and triple-**Ctrl+Space** 
   * XML lexer setting (**Shift+F11**)
   * Zoom level change (**Ctrl++/-**)
   * File saving
+  * Replace/All/In Selection (**Ctrl+H**) #206
+  * Drag & drop #222
 
 ### PCRE Support
 * Replaced incomplete *Notepad2* regexp implementation with a fully-featured Scintilla's Boost Regex - with `(a|b)`, backreferences `\1` (both in Search and Replace Strings) and other features. #90 #114
@@ -294,7 +306,7 @@ Backreference | Allowed in Search | Allowed in Replace
 Bottomline: use `\n` (n > 0) everywhere except for full-match in Replace - there use `$0`.
 
 ### Enclose Selection (Alt+Q)
-* Skips leading/trailing whitespace within the selection. For example, enclosindg space + `foo` + space produces space + `(foo)` + space instead of `( foo )`.
+* Skips leading/trailing whitespace within the selection. For example, enclosing space + `foo` + space produces space + `(foo)` + space instead of `( foo )`.
 * When "before" string consists of one of these characters: `{ ( [ <` then "after" is set to the same number of `} ) ] >`.
 * When "before" consists of one of the characters below then "after" is set to the same string as "before":
 ```
@@ -314,6 +326,8 @@ These changes make editing Markdown and wiki sources much more pleasant: `[[foo|
 ![Unwrap commands](https://github.com/ProgerXP/Notepad2e/raw/master/doc/gif/unwrap.gif)
 
 ### Special Commands
+Split Edit > Special submenu into 2 submenus: Special and Encode. #201
+
 HTML data:
 * **[NEW]** Edit > Special > Strip HTML Tags (**Shift+Alt+X**) command removes `<tags>` inside selection, or if there's none - removes first tag before cursor. #40
 * **[NEW]** Edit > Special > Escape HTML (**Ctrl+Shift+Alt+X**) command turns `< > &` into `&lt; &gt; &amp;` respectively (inside selection or everywhere in the document if selection is empty). #51 #31
@@ -321,19 +335,19 @@ HTML data:
 ![Shift+Alt+X - String Tags](https://github.com/ProgerXP/Notepad2e/raw/master/doc/gif/strip-tags.gif)
 
 Binary data:
-* **[NEW]** Edit > Special > String To Hex and Hex To String (**[Ctrl+]Alt+Shift+A**) operate on the document as a bytestream similarly to PHP's `bin2hex()` and `hex2bin()`. Hex To String ignores whitespace (#123). Output: `616263` for `abc`. #87
-* **[NEW]** Edit > Special > QP Encode and QP Decode (**[Ctrl+]Alt+Shift+Q**) operate on the document as a bytestream similarly to PHP's `quoted_printable_encode()` and `quoted_printable_decode()`. Output: `ab=3Dc` for `ab=c`. See [RFC2045, Section 6.7](http://www.faqs.org/rfcs/rfc2045) (this format is typically used in vCards and MIME). #124
-* **[NEW]** Edit > Special > Base64 Encode and Base64 Decode (**[Ctrl+]Alt+Shift+W**) operate on the document as a bytestream similarly to PHP's `base64_encode()` and `base64_decode()`. Base64 Decode ignores whitespace. Output: `YWJj` for `abc`. #122
+* **[NEW]** Edit > Encode > String To Hex and Hex To String (**[Ctrl+]Alt+Shift+A**) operate on the document as a bytestream similarly to PHP's `bin2hex()` and `hex2bin()`. Hex To String ignores whitespace (#123). Output: `616263` for `abc`. #87
+* **[NEW]** Edit > Encode > QP Encode and QP Decode (**[Ctrl+]Alt+Shift+Q**) operate on the document as a bytestream similarly to PHP's `quoted_printable_encode()` and `quoted_printable_decode()`. Output: `ab=3Dc` for `ab=c`. See [RFC2045, Section 6.7](http://www.faqs.org/rfcs/rfc2045) (this format is typically used in vCards and MIME). #124
+* **[NEW]** Edit > Encode > Base64 Encode and Base64 Decode (**[Ctrl+]Alt+Shift+W**) operate on the document as a bytestream similarly to PHP's `base64_encode()` and `base64_decode()`. Base64 Decode ignores whitespace. Output: `YWJj` for `abc`. #122
 * Big buffers will see a progress bar in the status bar for the above commands.
 * **Warning:** when saving binary data (e.g. a base64-encoded binary file) disable both checkboxes in File > Line Endings > Default, or saved content may be altered. Binary-Safe Save toolbar button does this for you. #170
 
 ![Encode/Decode Quoted-Printable/Base64](https://github.com/ProgerXP/Notepad2e/raw/master/doc/gif/qp-b64.gif)
 
 Other data:
-* Edit > Special > URL Encode and URL Decode (**[Alt+]Ctrl+Shift+E**) use new `UrlEscapeFlags` setting for predictable processing according to RFC 3986. #189
+* Edit > Encode > URL Encode and URL Decode (**[Alt+]Ctrl+Shift+E**) use new `UrlEncodeMode` setting for predictable processing according to RFC 3986. #189
 
 ### [NEW] Ctrl+Wheel Scroll
-Rolling mouse wheel while holding **Ctrl** scrolls the document by entire pages (like **Page Up/Down**) - makes it easier to navigate long scripts. #11
+Rolling mouse wheel while holding **Ctrl** scrolls the document by entire pages (like **Page Up/Down**) - makes it easier to navigate long scripts. #11 #217
 
 Related settings:
 * `WheelScroll`
@@ -355,8 +369,9 @@ Useful when creating snippets or lists from other sources - such as from URLs; n
 * When called with empty selection - appends the entire line.
 * In *Notepad2*, it didn't work with empty clipboard - now it works.
 
-### Retain Position On Recode
-When file is re-coded (File > Encoding menu items) caret position and selection are retained, to the best effort possible. #7
+### File Encoding
+* When file is re-coded (File > Encoding menu items) caret position and selection are retained, to the best effort possible. #7
+* File > Encoding > Recode (**F8**) renamed to Reload As to better reflect its purpose. #218
 
 ### [NEW] Go To Last Change
 Go To Last Change (**Ctrl+Shift+Z**) command moves caret to the position of last Undo action. Useful when making a change, scrolling to confirm something and then navigating back to continue. #6
@@ -379,12 +394,23 @@ Related settings:
 
 ![Language indicator](https://github.com/ProgerXP/Notepad2e/raw/master/doc/gif/lang-title.gif)
 
+### [NEW] Date/Time Indicator
+
+Menu bar can display the clock in the configured format. For example: `07/05/19 - 13:53`. The text is updated every 10 seconds. #210
+
+Related settings:
+* `ClockFormat`
+
+![Menu clock](https://github.com/ProgerXP/Notepad2e/raw/master/doc/gif/menu-clock.png)
+
 ### Other Changes
 * Replaced polling File Change Notification mechanism with a proper instant change listener, making the program suitable for watching log files (`tail -f`-style). #129
 * Sort Lines (**Alt+O**) and Modify Lines (**Alt+M**) operate on the entire document if selection is empty (*Notepad2* does nothing in this case). #133
 * Links of Modify Lines (**Alt+M**) dialog (`$(L)` and others) are simply inserted into a focused input instead of replacing its value. #119
 * Line breaks (`\r` and `\n`) are removed from Search/Replace (of Find/Replace, **Ctrl+F/H**) and Prefix/Append (of Modify Lines, **Alt+M**) inputs (could appear after pasting). #70 #173
 * **[NEW]** Ability to retain caret position and selection on right click. Setting: `MoveCaretOnRightClick`.
+* **[NEW]** Displaying selected line count in the status bar (in regular and rectangular modes). #204
+* **[NEW]** Edit > Insert > Random (**Ctrl+Shift+Alt+R**) inserts a padded number in range 1..99999 (inclusive) using the poor C's `rand()`. #221
 * "Accelerated" navigation mode for **Ctrl+Arrow** (like in Windows Notepad) that skips punctuation and other characters. Setting: `WordNavigationMode`.
 * Empty Window (**Alt+0**) no more triggers save prompt when Save Before Running Tools is enabled. #176
 * File > Encoding > UTF-8 has **Shift+F8** hotkey assigned. #21
@@ -395,6 +421,9 @@ Related settings:
 * Upgraded Scintilla library to a more recent version (3.6.6).
 * Added `<supportedOS>` manifest entries for Windows 10/8.1/8 (Server 2016/2012/R2), in addition to Windows 7/Vista (Server 2008/R2). #159
 * Reduced default *Notepad2* timeout from 1000 ms to 250 ms which sometimes allowed duplicate windows even if Single File Instance/Reuse Window were enabled. #177
+* Changed hardcoded printed page's header/footer font size from 8 pt/7 pt to 10 pt. #199
+* Reorganized `&` accelerators in File, Edit and Settings. #197
+* **[NEW]** ? > 3rd-Party Code attribution dialog. #181
 * Changed *Notepad2* defaults: #167
 
 Setting | Old Value | New Value
@@ -414,6 +443,7 @@ Long Line | 72 | 80
 ### Syntax Schemes
 
 **[NEW]** These syntax schemes were added:
+* `awk` #216
 * ASN1
 * bash
 * CoffeeScript
@@ -567,6 +597,41 @@ Value | Meaning
 1 | Always add language name as in `... [RU]`
 2 | As **1** but don't add if the language is English (`EN`)
 
+### ClockFormat
+
+Type | Default | Set By UI
+-----|---------|----------
+str, `strftime()` | |
+
+Controls format of the date/time indicator in the menu bar. If empty, it's hidden.
+
+Value is a standard `strftime()` format string composed of `%smth` sequences to be replaced by the corresponding values. Useful variables:
+
+Variable | Meaning | Example
+---------|---------|--------
+%% | The percent symbol itself | %
+%Y | Year | 2019
+%y | Short year | 19
+%B | Month name | July
+%b | Short month name | Jul
+%m | Month | 07
+%V | Week of the year | 27
+%j | Day of the year | 186
+%e | Day | 5
+%A | Weekday name | Friday
+%a | Short weekday name | Fri
+%H | Hour in 24-hour format | 14
+%I | Hour in 12-hour format | 02
+%p | Locale-dependent A.M. or P.M. | P.M.
+%M | Minute | 03
+%S | Second | 25
+%c | Locale-dependent standard date/time | Fri Jul 5 14:03:25 2019
+%x | Locale-dependent standard date | 07/05/19
+%X | Locale-dependent standard time | 14:03:25
+%Z | Locale-dependent time zone | Russia TZ 2 Standard Time
+
+Full reference: https://en.cppreference.com/w/cpp/chrono/c/strftime
+
 ### ShellMenuType
 
 Type | Default | Set By UI
@@ -615,7 +680,7 @@ Type | Default | Set By UI
 -----|---------|----------
 int, ms | 50 ms |
 
-when using **Ctrl+Wheel**, buffer will be scrolled at most once per this interval. Edit it if the program skips wheel rotations or is too sensitive.
+When using **Ctrl+Wheel**, buffer will be scrolled at most once per this interval. Edit it if the program skips wheel rotations or is too sensitive.
 
 Necessary because Windows fires a handful of wheel scroll events per one real scroll.
 
@@ -639,6 +704,16 @@ Controls **Ctrl+Arrow** navigation. If **1**, enables "accelerated" mode where o
 
 ![Accelerated navigation](https://github.com/ProgerXP/Notepad2e/raw/master/doc/gif/nav-accel.gif)
 ![Standard navigation](https://github.com/ProgerXP/Notepad2e/raw/master/doc/gif/nav-std.gif)
+
+### UrlEncodeMode
+
+Type | Default | Set By UI
+-----|---------|----------
+int, bool | 1 |
+
+If **0**, use *Notepad2*'s behaviour calling [UrlEscape](https://docs.microsoft.com/en-us/windows/desktop/api/shlwapi/nf-shlwapi-urlescapea) with `URL_ESCAPE_SEGMENT_ONLY`.
+
+If **1**, perform full URL encoding/decoding per RFC 3986.
 
 ### SaveOnLoseFocus
 
@@ -688,16 +763,6 @@ Type | Default | Set By UI
 int, KiB | 96 KiB |
 
 Maximum lookahead/behind distance for word highlighting. If too large, navigation in big files will lag since it will search the buffer for twice this length (back & forward) on every position change. #53 #42
-
-#### UrlEscapeFlags
-
-Type | Default | Set By UI
------|---------|----------
-int, bitfield | 8192 |
-
-If **0**, perform full URL encoding/decoding per RFC 3986.
-
-If **non-0**, call [UrlEscape](https://docs.microsoft.com/en-us/windows/desktop/api/shlwapi/nf-shlwapi-urlescapea) with those flags. Default value sets `URL_ESCAPE_SEGMENT_ONLY`, preserving *Notepad2*'s behaviour.
 
 #### _SelectionType
 

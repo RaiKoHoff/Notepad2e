@@ -1626,11 +1626,42 @@ EDITLEXER lexMarkdown = { SCLEX_MARKDOWN, 63034, L"Markdown", L"markdown;mdown;m
 };
 
 
+// [2e]: Awk syntax highlighting #216
+// Original lexer implementation: https://github.com/rizonesoft/Notepad3/blob/master/src/StyleLexers/styleLexAwk.c
+KEYWORDLIST KeyWords_Awk = {
+    "break case continue default do else exit function for if in next return switch while "
+    "@include delete nextfile print printf BEGIN BEGINFILE END "
+    "atan2 cos exp int log rand sin sqrt srand asort asorti gensub gsub index "
+    "length match patsplit split sprintf strtonum sub substr tolower toupper close "
+    "fflush system mktime strftime systime and compl lshift rshift xor "
+    "isarray bindtextdomain dcgettext dcngettext",
+    "ARGC ARGIND ARGV FILENAME FNR FS NF NR OFMT OFS ORS RLENGTH RS RSTART SUBSEP TEXTDOMAIN "
+    "BINMODE CONVFMT FIELDWIDTHS FPAT IGNORECASE LINT TEXTDOMAiN ENVIRON ERRNO PROCINFO RT",
+    "", "", "", "", "", ""
+};
+
+
+EDITLEXER lexAWK = { SCLEX_PYTHON, 63035, L"Awk Script", L"awk", L"", &KeyWords_Awk,{
+        { STYLE_DEFAULT, 63126, L"Default", L"", L"" },
+        { SCE_P_WORD, 63128, L"Keyword", L"bold; fore:#0000A0", L"" },
+        { SCE_P_WORD, 63262, L"Keyword 2", L"bold; italic; fore:#6666FF", L"" },
+        { SCE_P_IDENTIFIER, 63129, L"Identifier", L"", L"" },
+        { MULTI_STYLE(SCE_P_COMMENTLINE,SCE_P_COMMENTBLOCK,0,0), 63127, L"Comment", L"fore:#808080", L"" },
+        { MULTI_STYLE(SCE_P_STRING,SCE_P_STRINGEOL,SCE_P_CHARACTER,0), 63131, L"String", L"fore:#008000", L"" },
+        { SCE_P_NUMBER, 63130, L"Number", L"fore:#C04000", L"" },
+        { SCE_P_OPERATOR, 63132, L"Operator", L"fore:#B000B0", L"" },
+        { -1, 00000, L"", L"", L"" }
+      }
+};
+// [/2e]
+
+
 PEDITLEXER pLexArray[NUMLEXERS] = {
     &lexDefault,
     &lexCONF,
     &lexASN1,
     &lexASM,
+    &lexAWK,
     &lexBASH,
     &lexBAT,
     &lexCS,
@@ -3459,7 +3490,7 @@ INT_PTR CALLBACK Style_ConfigDlgProc(HWND hwnd, UINT umsg, WPARAM wParam, LPARAM
 
   switch (umsg)
   {
-    N2E_DPI_CHANGED_HANDLER();
+    DPI_CHANGED_HANDLER();
 
     case WM_INITDIALOG: {
         int i;
@@ -3498,7 +3529,7 @@ INT_PTR CALLBACK Style_ConfigDlgProc(HWND hwnd, UINT umsg, WPARAM wParam, LPARAM
         hFontTitle = CreateFontIndirect(&lf);
         SendDlgItemMessage(hwnd, IDC_TITLE, WM_SETFONT, (WPARAM)hFontTitle, TRUE);
 
-        N2E_DPI_INIT();
+        DPI_INIT();
         CenterDlgInParent(hwnd);
       }
       return TRUE;
@@ -3936,7 +3967,7 @@ INT_PTR CALLBACK Style_SelectLexerDlgProc(HWND hwnd, UINT umsg, WPARAM wParam, L
 
   switch (umsg)
   {
-    N2E_DPI_CHANGED_HANDLER();
+    DPI_CHANGED_HANDLER();
 
     case WM_INITDIALOG: {
         int i;
@@ -4017,7 +4048,7 @@ INT_PTR CALLBACK Style_SelectLexerDlgProc(HWND hwnd, UINT umsg, WPARAM wParam, L
         if (bAutoSelect)
           CheckDlgButton(hwnd, IDC_AUTOSELECT, BST_CHECKED);
 
-        N2E_DPI_INIT();
+        DPI_INIT();
         CenterDlgInParent(hwnd);
       }
       return TRUE;
@@ -4072,7 +4103,7 @@ INT_PTR CALLBACK Style_SelectLexerDlgProc(HWND hwnd, UINT umsg, WPARAM wParam, L
         MapWindowPoints(NULL, hwnd, (LPPOINT)&rc, 2);
         SetWindowPos(GetDlgItem(hwnd, IDC_DEFAULTSCHEME), NULL, rc.left, rc.top + dyClient, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
         InvalidateRect(GetDlgItem(hwnd, IDC_DEFAULTSCHEME), NULL, TRUE);
-        N2E_DPI_RESIZE();
+        DPI_RESIZE();
       }
       return TRUE;
 
@@ -4081,7 +4112,7 @@ INT_PTR CALLBACK Style_SelectLexerDlgProc(HWND hwnd, UINT umsg, WPARAM wParam, L
         LPMINMAXINFO lpmmi = (LPMINMAXINFO)lParam;
         lpmmi->ptMinTrackSize.x = mmiPtMinX;
         lpmmi->ptMinTrackSize.y = mmiPtMaxY;
-        N2E_DPI_GETMINMAXINFO();
+        DPI_GETMINMAXINFO();
       }
       return TRUE;
 

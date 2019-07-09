@@ -38,6 +38,7 @@
 #include "Extension/ExtSelection.h"
 #include "Extension/DPIHelper.h"
 #include "Extension/SciCall.h"
+#include "Extension/ProcessElevationUtils.h"
 #include "Extension/Utils.h"
 
 
@@ -1436,7 +1437,7 @@ BOOL EditSaveFile(
 
   *pbCancelDataLoss = FALSE;
 
-  hFile = CreateFile(pszFile,
+  hFile = n2e_CreateFile(pszFile,
                      GENERIC_WRITE,
                      FILE_SHARE_READ | FILE_SHARE_WRITE,
                      NULL,
@@ -1452,7 +1453,7 @@ BOOL EditSaveFile(
     if (dwAttributes != INVALID_FILE_ATTRIBUTES)
     {
       dwAttributes = dwAttributes & (FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM);
-      hFile = CreateFile(pszFile,
+      hFile = n2e_CreateFile(pszFile,
                          GENERIC_WRITE,
                          FILE_SHARE_READ | FILE_SHARE_WRITE,
                          NULL,
@@ -1483,7 +1484,7 @@ BOOL EditSaveFile(
 
   if (cbData == 0)
   {
-    bWriteSuccess = SetEndOfFile(hFile);
+    bWriteSuccess = n2e_SetEndOfFile(hFile);
     dwLastIOError = GetLastError();
   }
 
@@ -1494,7 +1495,7 @@ BOOL EditSaveFile(
       LPWSTR lpDataWide;
       int    cbDataWide;
 
-      SetEndOfFile(hFile);
+      n2e_SetEndOfFile(hFile);
 
       lpDataWide = GlobalAlloc(GPTR, cbData * 2 + 16);
       cbDataWide = MultiByteToWideChar(CP_UTF8, 0, lpData, cbData, lpDataWide, (int)GlobalSize(lpDataWide) / sizeof(WCHAR));
@@ -1502,15 +1503,15 @@ BOOL EditSaveFile(
       if (mEncoding[iEncoding].uFlags & NCP_UNICODE_BOM)
       {
         if (mEncoding[iEncoding].uFlags & NCP_UNICODE_REVERSE)
-          WriteFile(hFile, (LPCVOID) "\xFE\xFF", 2, &dwBytesWritten, NULL);
+          n2e_WriteFile(hFile, (LPCVOID) "\xFE\xFF", 2, &dwBytesWritten, NULL);
         else
-          WriteFile(hFile, (LPCVOID) "\xFF\xFE", 2, &dwBytesWritten, NULL);
+          n2e_WriteFile(hFile, (LPCVOID) "\xFF\xFE", 2, &dwBytesWritten, NULL);
       }
 
       if (mEncoding[iEncoding].uFlags & NCP_UNICODE_REVERSE)
         _swab((char *)lpDataWide, (char *)lpDataWide, cbDataWide * sizeof(WCHAR));
 
-      bWriteSuccess = WriteFile(hFile, lpDataWide, cbDataWide * sizeof(WCHAR), &dwBytesWritten, NULL);
+      bWriteSuccess = n2e_WriteFile(hFile, lpDataWide, cbDataWide * sizeof(WCHAR), &dwBytesWritten, NULL);
       dwLastIOError = GetLastError();
 
       GlobalFree(lpDataWide);
@@ -1519,12 +1520,12 @@ BOOL EditSaveFile(
 
     else if (mEncoding[iEncoding].uFlags & NCP_UTF8)
     {
-      SetEndOfFile(hFile);
+      n2e_SetEndOfFile(hFile);
 
       if (mEncoding[iEncoding].uFlags & NCP_UTF8_SIGN)
-        WriteFile(hFile, (LPCVOID) "\xEF\xBB\xBF", 3, &dwBytesWritten, NULL);
+        n2e_WriteFile(hFile, (LPCVOID) "\xEF\xBB\xBF", 3, &dwBytesWritten, NULL);
 
-      bWriteSuccess = WriteFile(hFile, lpData, cbData, &dwBytesWritten, NULL);
+      bWriteSuccess = n2e_WriteFile(hFile, lpData, cbData, &dwBytesWritten, NULL);
       dwLastIOError = GetLastError();
 
       GlobalFree(lpData);
@@ -1562,8 +1563,8 @@ BOOL EditSaveFile(
 
       if (!bCancelDataLoss || InfoBox(MBOKCANCEL, L"MsgConv3", IDS_ERR_UNICODE2) == IDOK)
       {
-        SetEndOfFile(hFile);
-        bWriteSuccess = WriteFile(hFile, lpData, cbData, &dwBytesWritten, NULL);
+        n2e_SetEndOfFile(hFile);
+        bWriteSuccess = n2e_WriteFile(hFile, lpData, cbData, &dwBytesWritten, NULL);
         dwLastIOError = GetLastError();
       }
       else
@@ -1577,14 +1578,14 @@ BOOL EditSaveFile(
 
     else
     {
-      SetEndOfFile(hFile);
-      bWriteSuccess = WriteFile(hFile, lpData, cbData, &dwBytesWritten, NULL);
+      n2e_SetEndOfFile(hFile);
+      bWriteSuccess = n2e_WriteFile(hFile, lpData, cbData, &dwBytesWritten, NULL);
       dwLastIOError = GetLastError();
       GlobalFree(lpData);
     }
   }
 
-  CloseHandle(hFile);
+  n2e_CloseHandle(hFile);
 
   if (bWriteSuccess)
   {
@@ -4953,11 +4954,11 @@ INT_PTR CALLBACK EditFindReplaceDlgProcW(HWND hwnd, UINT umsg, WPARAM wParam, LP
 
   switch (umsg)
   {
-    N2E_DPI_CHANGED_HANDLER();
+    DPI_CHANGED_HANDLER();
 
     case WM_INITDIALOG: {
 
-        N2E_DPI_INIT();
+        DPI_INIT();
 
         int cchSelection;
         char *lpszSelection;
@@ -5152,6 +5153,7 @@ INT_PTR CALLBACK EditFindReplaceDlgProcW(HWND hwnd, UINT umsg, WPARAM wParam, LP
 
         case IDC_FINDTRANSFORMBS:
           n2e_EditFindReplaceUpdateCheckboxes(hwnd, IDC_FINDTRANSFORMBS);
+          PostMessage(hwnd, WM_COMMAND, MAKEWPARAM(IDC_FINDTEXT, 1), 0);
           break;
 
         case IDOK:
@@ -6051,7 +6053,7 @@ INT_PTR CALLBACK EditLinenumDlgProc(HWND hwnd, UINT umsg, WPARAM wParam, LPARAM 
 {
   switch (umsg)
   {
-    N2E_DPI_CHANGED_HANDLER();
+    DPI_CHANGED_HANDLER();
 
     case WM_INITDIALOG: {
 
@@ -6062,7 +6064,7 @@ INT_PTR CALLBACK EditLinenumDlgProc(HWND hwnd, UINT umsg, WPARAM wParam, LPARAM 
         SendDlgItemMessage(hwnd, IDC_COLNUM, EM_LIMITTEXT, 15, 0);
         SendDlgItemMessage(hwnd, IDC_POSNUM, EM_LIMITTEXT, 15, 0);
 
-        N2E_DPI_INIT();
+        DPI_INIT();
         CenterDlgInParent(hwnd);
 
       }
@@ -6200,7 +6202,7 @@ INT_PTR CALLBACK EditModifyLinesDlgProc(HWND hwnd, UINT umsg, WPARAM wParam, LPA
 
   switch (umsg)
   {
-    N2E_DPI_CHANGED_HANDLER();
+    DPI_CHANGED_HANDLER();
 
     case WM_INITDIALOG: {
         LOGFONT lf;
@@ -6229,7 +6231,7 @@ INT_PTR CALLBACK EditModifyLinesDlgProc(HWND hwnd, UINT umsg, WPARAM wParam, LPA
         n2e_EnableClipboardFiltering(hwnd, 101);
         // [/2e]
 
-        N2E_DPI_INIT();
+        DPI_INIT();
         CenterDlgInParent(hwnd);
       }
       return TRUE;
@@ -6399,12 +6401,12 @@ INT_PTR CALLBACK EditAlignDlgProc(HWND hwnd, UINT umsg, WPARAM wParam, LPARAM lP
   static int *piAlignMode;
   switch (umsg)
   {
-    N2E_DPI_CHANGED_HANDLER();
+    DPI_CHANGED_HANDLER();
 
     case WM_INITDIALOG: {
         piAlignMode = (int *)lParam;
         CheckRadioButton(hwnd, 100, 104, *piAlignMode + 100);
-        N2E_DPI_INIT();
+        DPI_INIT();
         CenterDlgInParent(hwnd);
       }
       return TRUE;
@@ -6481,7 +6483,7 @@ INT_PTR CALLBACK EditEncloseSelectionDlgProc(HWND hwnd, UINT umsg, WPARAM wParam
   static PENCLOSESELDATA pdata;
   switch (umsg)
   {
-    N2E_DPI_CHANGED_HANDLER();
+    DPI_CHANGED_HANDLER();
 
     case WM_INITDIALOG: {
         pdata = (PENCLOSESELDATA)lParam;
@@ -6489,7 +6491,7 @@ INT_PTR CALLBACK EditEncloseSelectionDlgProc(HWND hwnd, UINT umsg, WPARAM wParam
         SetDlgItemTextW(hwnd, 100, pdata->pwsz1);
         SendDlgItemMessage(hwnd, 101, EM_LIMITTEXT, 255, 0);
         SetDlgItemTextW(hwnd, 101, pdata->pwsz2);
-        N2E_DPI_INIT();
+        DPI_INIT();
         CenterDlgInParent(hwnd);
       }
       return TRUE;
@@ -6593,7 +6595,7 @@ INT_PTR CALLBACK EditInsertTagDlgProc(HWND hwnd, UINT umsg, WPARAM wParam, LPARA
   static PTAGSDATA pdata;
   switch (umsg)
   {
-    N2E_DPI_CHANGED_HANDLER();
+    DPI_CHANGED_HANDLER();
 
     case WM_INITDIALOG: {
         pdata = (PTAGSDATA)lParam;
@@ -6603,7 +6605,7 @@ INT_PTR CALLBACK EditInsertTagDlgProc(HWND hwnd, UINT umsg, WPARAM wParam, LPARA
         SetDlgItemTextW(hwnd, 101, wchLastHTMLEndTag);
         SetFocus(GetDlgItem(hwnd, 100));
         n2e_Init_EditInsertTagDlg(hwnd);
-        N2E_DPI_INIT();
+        DPI_INIT();
         CenterDlgInParent(hwnd);
       }
       return FALSE;
@@ -6669,7 +6671,7 @@ INT_PTR CALLBACK EditSortDlgProc(HWND hwnd, UINT umsg, WPARAM wParam, LPARAM lPa
 
   switch (umsg)
   {
-    N2E_DPI_CHANGED_HANDLER();
+    DPI_CHANGED_HANDLER();
 
     case WM_INITDIALOG: {
         piSortFlags = (int *)lParam;
@@ -6718,7 +6720,7 @@ INT_PTR CALLBACK EditSortDlgProc(HWND hwnd, UINT umsg, WPARAM wParam, LPARAM lPa
           *piSortFlags |= SORT_COLUMN;
           CheckDlgButton(hwnd, 108, BST_CHECKED);
         }
-        N2E_DPI_INIT();
+        DPI_INIT();
         CenterDlgInParent(hwnd);
       }
       return TRUE;

@@ -1,3 +1,4 @@
+#include "stdafx.h"
 #include <time.h>
 #include "Utils.h"
 #include "CommonUtils.h"
@@ -15,6 +16,8 @@
 #include "Subclassing.h"
 #include "VersionHelper.h"
 #include "Externals.h"
+#include "ProcessElevationUtils.h"
+#include "Shell32Helper.h"
 
 #define INI_SETTING_HIGHLIGHT_SELECTION L"HighlightSelection"
 #define INI_SETTING_SAVE_ON_LOSE_FOCUS L"SaveOnLoseFocus"
@@ -129,7 +132,7 @@ BOOL n2e_UpdateClockMenuItem()
   mii.cch = lstrlen(buf);
   if (SetMenuItemInfo(hmenu, iClockMenuItemIndex, TRUE, &mii))
   {
-    RedrawWindow(hwndMain, NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW | RDW_ERASE | RDW_FRAME | RDW_NOINTERNALPAINT);
+    DrawMenuBar(hwndMain);
     return TRUE;
   }
   return FALSE;
@@ -152,6 +155,10 @@ void n2e_InitClock()
     n2e_UpdateClockMenuItem();
     iClockUpdateTimerId = SetTimer(NULL, 0, iClockUpdateInterval, n2e_ClockTimerProc);
   }
+  else
+  {
+    iClockUpdateTimerId = 0;
+  }
 }
 
 void n2e_ReleaseClock()
@@ -159,16 +166,21 @@ void n2e_ReleaseClock()
   if (iClockUpdateTimerId)
   {
     KillTimer(NULL, iClockUpdateTimerId);
+    const HMENU hmenu = GetMenu(hwndMain);
+    DeleteMenu(hmenu, GetMenuItemCount(hmenu) - 1, MF_BYPOSITION);
+    DrawMenuBar(hwndMain);
   }
 }
 
 void n2e_Init()
 {
+  srand((UINT)GetTickCount());
   n2e_InitializeTrace();
   n2e_SetWheelScroll(bCtrlWheelScroll);
   n2e_InitClock();
   n2e_ResetLastRun();
   n2e_EditInit();
+  n2e_Shell32Initialize();
 }
 
 LPCWSTR n2e_GetLastRun(LPCWSTR lpstrDefault)
@@ -285,6 +297,7 @@ void n2e_Release()
   n2e_ReleaseClock();
   n2e_SelectionRelease();
   n2e_FinalizeTrace();
+  n2e_FinalizeIPC();
 }
 
 void n2e_Reset()
@@ -1144,4 +1157,18 @@ void n2e_ProcessAbout3rdPartyUrl(const HWND hwndRichedit, ENLINK* pENLink)
     }
     n2e_Free(pUrl);
   }
+}
+
+long n2e_GenerateRandom()
+{
+  const long MIN_RANDOM = 1;
+  const long MAX_DECIMAL_DIGITS = 5;
+  long factor = 1;
+  long res = 0;
+  for (int i = 0; i < MAX_DECIMAL_DIGITS; ++i)
+  {
+    res += (rand() % 10) * factor;
+    factor *= 10;
+  }
+  return max(MIN_RANDOM, res);
 }
