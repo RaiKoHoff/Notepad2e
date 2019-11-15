@@ -1204,6 +1204,13 @@ LRESULT CALLBACK MainWndProc(HWND hwnd, UINT umsg, WPARAM wParam, LPARAM lParam)
       MsgInitMenu(hwnd, wParam, lParam);
       break;
 
+    
+    // [2e]: Hide pointer while typing #230
+    case WM_MENUSELECT:
+      n2e_OnMouseVanishEvent(TRUE);
+      break;
+    // [/2e]
+
 
     case WM_NOTIFY:
       return MsgNotify(hwnd, wParam, lParam);
@@ -1907,8 +1914,13 @@ void MsgInitMenu(HWND hwnd, WPARAM wParam, LPARAM lParam)
     EnableCmd(hmenu, IDM_FILE_ELEVATE, FALSE);
   }
   CheckCmd(hmenu, IDM_FILE_ELEVATE, fIsElevated || n2e_IsElevatedMode());
-  // [/2e]
+  // [2e]: Minor menu fixes #229
+  EnableCmd(hmenu, ID_FILE_OPEN__NEXT, i);
+  EnableCmd(hmenu, ID_FILE_OPEN__PREVIOUS, i);
+  EnableCmd(hmenu, ID_FILE_INVOKESHELLMENU, i);
   EnableCmd(hmenu, IDM_FILE_ADDTOFAV, i);
+  // [2e]: Disable Launch commands for Unnamed #238
+  EnableCmd(hmenu, IDM_FILE_OPENWITH, i);
   // [2e]: File->RenameTo menu item
   EnableCmd(hmenu, ID_FILE_RENAMETO, i);
   EnableCmd(hmenu, IDM_FILE_READONLY, i);
@@ -3338,7 +3350,7 @@ LRESULT MsgCommand(HWND hwnd, WPARAM wParam, LPARAM lParam)
       {
         char mszBuf[MAX_PATH] = { 0 };
         sprintf(mszBuf, "%05d", n2e_GenerateRandom());
-        SciCall_ReplaceSel(0, (LPARAM)mszBuf);
+        SciCall_ReplaceSel(0, mszBuf);
         SciCall_SetSel(SciCall_GetAnchor() - strlen(mszBuf), SciCall_GetSelStart());
       }
       break;
@@ -6763,6 +6775,7 @@ void UpdateStatusbar()
   WCHAR tchCols[32];
   WCHAR tchSel[32];
   WCHAR tchSelLines[32];
+  WCHAR tchPos[32];
   WCHAR tchDocPos[256];
 
   int iBytes;
@@ -6814,11 +6827,16 @@ void UpdateStatusbar()
     lstrcat(tchSel, tchSelLines);
   }
   // [/2e]
+
+  // [2e]: Display the data offset in the Statusbar #233
+  wsprintf(tchPos, L"%i", iPos);
+  FormatNumberStr(tchPos);
+  // [/2e]
   
   if (!bMarkLongLines)
-    FormatString(tchDocPos, COUNTOF(tchDocPos), IDS_DOCPOS, tchLn, tchLines, tchCol, tchSel);
+    FormatString(tchDocPos, COUNTOF(tchDocPos), IDS_DOCPOS, tchLn, tchLines, tchCol, tchSel, tchPos);
   else
-    FormatString(tchDocPos, COUNTOF(tchDocPos), IDS_DOCPOS2, tchLn, tchLines, tchCol, tchCols, tchSel);
+    FormatString(tchDocPos, COUNTOF(tchDocPos), IDS_DOCPOS2, tchLn, tchLines, tchCol, tchCols, tchSel, tchPos);
   
   // [2e]: "Evaluate selection"-feature
   const BOOL docSizeOK = n2e_FormatEvaluatedExpression(hwndEdit, tchDocSize, COUNTOF(tchDocSize));

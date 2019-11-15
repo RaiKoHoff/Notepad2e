@@ -92,7 +92,7 @@ extern enum ESaveSettingsMode nSaveSettingsMode;
 void n2e_InitInstance()
 {
   InitScintillaHandle(hwndEdit);
-  n2e_Init();
+  n2e_Init(hwndEdit);
   hShellHook = SetWindowsHookEx(WH_SHELL, n2e_ShellProc, NULL, GetCurrentThreadId());
 }
 
@@ -143,6 +143,23 @@ void CALLBACK n2e_ClockTimerProc(HWND _h, UINT _u, UINT_PTR idEvent, DWORD _t)
   n2e_UpdateClockMenuItem();
 }
 
+LRESULT CALLBACK n2e_ScintillaSubclassWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+  switch (uMsg)
+  {
+  case WM_CHAR:
+    n2e_OnMouseVanishEvent(FALSE);
+    break;
+  case WM_KILLFOCUS:
+  case WM_MOUSEMOVE:
+    n2e_OnMouseVanishEvent(TRUE);
+    break;
+  default:
+    break;
+  }
+  return n2e_CallOriginalWindowProc(hwnd, uMsg, wParam, lParam);
+}
+
 void n2e_InitClock()
 {
   if (lstrlen(wchClockFormat))
@@ -172,7 +189,7 @@ void n2e_ReleaseClock()
   }
 }
 
-void n2e_Init()
+void n2e_Init(const HWND hwndEdit)
 {
   srand((UINT)GetTickCount());
   n2e_InitializeTrace();
@@ -181,6 +198,7 @@ void n2e_Init()
   n2e_ResetLastRun();
   n2e_EditInit();
   n2e_Shell32Initialize();
+  n2e_SubclassWindow(hwndEdit, n2e_ScintillaSubclassWndProc);
 }
 
 LPCWSTR n2e_GetLastRun(LPCWSTR lpstrDefault)
@@ -303,7 +321,7 @@ void n2e_Release()
 void n2e_Reset()
 {
   n2e_Release();
-  n2e_Init();
+  n2e_Init(hwndEdit);
 }
 
 BOOL n2e_TestOffsetTail(WCHAR *wch)
@@ -757,7 +775,7 @@ void n2e_GetLastDir(LPTSTR out)
   }
 }
 
-void n2e_Grep(void* _lpf, const BOOL grep)
+BOOL n2e_Grep(void* _lpf, const BOOL grep)
 {
   LPEDITFINDREPLACE lpf = (LPEDITFINDREPLACE)_lpf;
   int k = 0;
@@ -768,7 +786,12 @@ void n2e_Grep(void* _lpf, const BOOL grep)
   struct Sci_TextToFind ttf;
   if (!lstrlenA(lpf->szFind))
   {
-    return;
+    return FALSE;
+  }
+
+  if (!n2e_IsFindReplaceAvailable(lpf))
+  {
+    return FALSE;
   }
 
   const int selStart = SciCall_GetSelStart();
@@ -790,7 +813,7 @@ void n2e_Grep(void* _lpf, const BOOL grep)
   }
   if (lstrlenA(szFind2) == 0)
   {
-    return;
+    return FALSE;
   }
 
   BeginWaitCursor();
@@ -840,6 +863,7 @@ void n2e_Grep(void* _lpf, const BOOL grep)
   UpdateLineNumberWidth();
   n2e_HideProgressBarInStatusBar();
   EndWaitCursor();
+  return TRUE;
 }
 
 void n2e_InplaceRev(WCHAR * s)
@@ -958,23 +982,11 @@ void n2e_HideProgressBarInStatusBar()
 void n2e_SetProgressBarPosInStatusBar(const long nCurPos)
 {
   InlineProgressBarCtrl_SetPos(hwndStatusProgressBar, nCurPos);
-  n2e_ProcessPendingMessages();
 }
 
 void n2e_IncProgressBarPosInStatusBar(const long nOffset)
 {
   InlineProgressBarCtrl_IncPos(hwndStatusProgressBar, nOffset);
-  n2e_ProcessPendingMessages();
-}
-
-void n2e_ProcessPendingMessages()
-{
-  MSG msg;
-  while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
-  {
-    TranslateMessage(&msg);
-    DispatchMessage(&msg);
-  }
 }
 
 int n2e_JoinParagraphs_GetSelEnd(const int iSelEnd)

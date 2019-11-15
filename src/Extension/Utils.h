@@ -26,9 +26,9 @@ typedef enum
 
 typedef enum
 {
-	SLF_DISABLED = 0,
-	SLF_ENABLED = 1,
-	SLF_ENABLED_UNTIL_NEW_FILE = 2,
+  SLF_DISABLED = 0,
+  SLF_ENABLED = 1,
+  SLF_ENABLED_UNTIL_NEW_FILE = 2,
 } ESaveOnLoseFocus;
 
 typedef enum
@@ -108,7 +108,7 @@ BOOL n2e_GetGotoNumber(LPTSTR temp, int *out, const BOOL hex);
 void n2e_InplaceRev(WCHAR * s);
 int n2e_CompareFiles(LPCWSTR sz1, LPCWSTR sz2);
 BOOL n2e_OpenFileByPrefix(LPCWSTR pref, LPWSTR dir, LPWSTR out);
-void n2e_Grep(void* lpf, const BOOL grep);
+BOOL n2e_Grep(void* lpf, const BOOL grep);
 void n2e_SetWheelScroll(const BOOL enable);
 BOOL n2e_IsWordChar(const WCHAR ch);
 
@@ -130,7 +130,6 @@ void n2e_ShowProgressBarInStatusBar(LPCWSTR pProgressText, const long nCurPos, c
 void n2e_HideProgressBarInStatusBar();
 void n2e_SetProgressBarPosInStatusBar(const long nCurPos);
 void n2e_IncProgressBarPosInStatusBar(const long nOffset);
-void n2e_ProcessPendingMessages();
 int n2e_JoinParagraphs_GetSelEnd(const int iSelEnd);
 int n2e_JoinLines_GetSelEnd(const int iSelStart, const int iSelEnd, BOOL *pbContinueProcessing);
 void n2e_InitAbout3rdPartyText(const HWND hwndRichedit);

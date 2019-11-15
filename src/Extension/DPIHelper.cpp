@@ -55,7 +55,8 @@ BOOL GetDpiForMonitor(const HMONITOR hMonitor, UINT* dpiX, UINT* dpiY)
 
 DWORD GetDPIFromWindowHDC(const HWND hwnd)
 {
-  int dpiX = USER_DEFAULT_SCREEN_DPI, dpiY = USER_DEFAULT_SCREEN_DPI;
+  int dpiX = USER_DEFAULT_SCREEN_DPI;
+  int dpiY = USER_DEFAULT_SCREEN_DPI;
   if (hwnd)
   {
     const HDC hdc = GetDC(hwnd);
@@ -71,7 +72,8 @@ DWORD GetDPIFromWindowHDC(const HWND hwnd)
 
 DWORD GetDPIFromMonitor(const HMONITOR hMonitor, const HWND hwnd)
 {
-  UINT dpiX = USER_DEFAULT_SCREEN_DPI, dpiY = USER_DEFAULT_SCREEN_DPI;
+  UINT dpiX = USER_DEFAULT_SCREEN_DPI;
+  UINT dpiY = USER_DEFAULT_SCREEN_DPI;
   if (GetDpiForMonitor(hMonitor, &dpiX, &dpiY))
   {
     return MAKELONG(dpiX, dpiY);
@@ -319,11 +321,11 @@ static BOOL isWindowsVersionOrGreater(WORD wMajorVersion, WORD wMinorVersion, WO
 {
   OSVERSIONINFOEXW osvi = { sizeof(osvi), 0, 0, 0, 0,{ 0 }, 0, 0 };
   DWORDLONG        const dwlConditionMask = VerSetConditionMask(
-	  VerSetConditionMask(
-		  VerSetConditionMask(
-			  0, VER_MAJORVERSION, VER_GREATER_EQUAL),
-		  VER_MINORVERSION, VER_GREATER_EQUAL),
-	  VER_SERVICEPACKMAJOR, VER_GREATER_EQUAL);
+    VerSetConditionMask(
+      VerSetConditionMask(
+        0, VER_MAJORVERSION, VER_GREATER_EQUAL),
+      VER_MINORVERSION, VER_GREATER_EQUAL),
+    VER_SERVICEPACKMAJOR, VER_GREATER_EQUAL);
 
   osvi.dwMajorVersion = wMajorVersion;
   osvi.dwMinorVersion = wMinorVersion;
