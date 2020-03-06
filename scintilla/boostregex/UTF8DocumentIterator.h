@@ -1,20 +1,24 @@
 ﻿#pragma once
 
 #include <iterator>
+#include <memory>
 #include <vector>
 #include "Platform.h"
 #include "SplitVector.h"
 #include "Partitioning.h"
 #include "RunStyles.h"
+#include "Position.h"
 #include "CellBuffer.h"
 #include "CharClassify.h"
 #include "Decoration.h"
 #include <ILexer.h>
+#include <ILoader.h>
 #include "CaseFolder.h"
 #include <Scintilla.h>
+#include "../scintilla/lexlib/CharacterCategory.h"
 #include <Document.h>
 
-void ReadCharacterFromUTF8(Document* _doc, const int _pos, const int _end,
+void ReadCharacterFromUTF8(Scintilla::Document* _doc, const Sci::Position _pos, const Sci::Position _end,
 	wchar_t* _character, int& _characterIndex, int& _utf8Length, int& _utf16Length);
 
 class UTF8DocumentIterator : public std::iterator<std::bidirectional_iterator_tag, wchar_t>
@@ -30,7 +34,7 @@ public:
         {
         }
 
-        UTF8DocumentIterator(Document* doc, int pos, int end) : 
+        UTF8DocumentIterator(Scintilla::Document* doc, Sci::Position pos, Sci::Position end) :
                 m_doc(doc),
                 m_pos(pos),
                 m_end(end),
@@ -131,7 +135,7 @@ public:
             return *this;
         }
 
-        int pos() const
+		Sci::Position pos() const
         {
                 return m_pos;
         }
@@ -147,11 +151,11 @@ private:
                 return m_pos >= m_end;
         }
 
-        int m_pos;
+		Sci::Position m_pos;
 		wchar_t m_character[2];
 		int m_characterIndex;
-        int m_end;
+		Sci::Position m_end;
 		int m_utf8Length;
 		int m_utf16Length;
-        Document* m_doc;
+		Scintilla::Document* m_doc;
 };

@@ -27,8 +27,7 @@
 #define ID_SETTINGS_EVAL_DISABLED       51
 #define ID_SETTINGS_EVAL_SELECTION      52
 #define ID_SETTINGS_EVAL_LINE           53
-#define ID_SETTINGS_WORD_NAVIGATION_STANDARD  54
-#define ID_SETTINGS_WORD_NAVIGATION_ACCELERATED  55
+#define ID_SETTINGS_WORD_NAVIGATION     54
 #define IDM_FILE_OPENFOLDER             56
 #define ID_SAVEONLOSEFOCUS_DISABLED     57
 #define ID_SAVEONLOSEFOCUS_ENABLED 58
@@ -126,15 +125,23 @@
 #define IDD_INSERTTAG                   114
 #define IDC_REPLACEINSEL                114
 #define IDD_SORT                        115
-#define IDC_TOGGLEFINDREPLACE           115
+#define IDC_TOGGLEFIND                  115
 #define IDD_COLUMNWRAP                  116
+#define IDC_TOGGLEREPLACE               116
 #define IDC_RICHEDIT                    116
 #define IDD_LINENUM                     117
+#define IDC_TOGGLEGOTO                  117
+#define IDC_RADIO1                      117
 #define IDD_FIND                        118
+#define IDC_RADIO2                      118
 #define IDD_REPLACE                     119
+#define IDC_RADIO3                      119
 #define IDD_STYLESELECT                 120
+#define IDC_RADIO4                      120
 #define IDD_STYLECONFIG                 121
+#define IDC_RADIO5                      121
 #define IDD_WORDWRAP                    122
+#define IDC_RADIO6                      122
 #define IDD_LONGLINES                   123
 #define IDD_TABSETTINGS                 124
 #define IDD_PAGESETUP                   125
@@ -153,6 +160,7 @@
 #define IDACC_SELTONEXT                 208
 #define IDACC_SELTOPREV                 209
 #define IDACC_BACK                      210
+#define IDACC_GOTO                      211
 #define IDS_APPTITLE                    10000
 #define IDS_APPTITLE_ELEVATED           10001
 #define IDS_APPTITLE_PASTEBOARD         10002
@@ -458,6 +466,7 @@
 #define IDS_ERR_SAVEAS_RENAME_DETAILS   50042
 #define IDS_WARN_ICU_REGEX              50043
 #define IDS_ERR_ELEVATE                 50044
+#define IDS_ERR_MEMORY_ALLOCATION       50045
 #define IDS_CMDLINEHELP                 60000
 
 // Next default values for new objects

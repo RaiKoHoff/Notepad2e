@@ -11,7 +11,7 @@ public:
 	{
 	}
 
-	AnsiDocumentIterator(Document* doc, int pos, int end) : 
+	AnsiDocumentIterator(Scintilla::Document* doc, Sci::Position pos, Sci::Position end) :
 		m_doc(doc),
 		m_pos(pos),
 		m_end(end)
@@ -70,13 +70,13 @@ public:
 		return *this;
 	}
 
-	int pos() const
+	Sci::Position pos() const
 	{
 		return m_pos;
 	}
 
 private:
-	char charAt(int position) const
+	char charAt(Sci::Position position) const
 	{
 		return m_doc->CharAt(position);
 	}
@@ -86,9 +86,9 @@ private:
 		return m_pos == m_end;
 	}
 
-	int m_pos;
-	int m_end;
-	Document* m_doc;
+	Sci::Position m_pos;
+	Sci::Position m_end;
+	Scintilla::Document* m_doc;
 };
 
 #endif

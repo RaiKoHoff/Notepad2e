@@ -73,6 +73,7 @@ __forceinline LRESULT SciCall_##fn(type1 var1, type2 var2) {       \
 //  Selection and information
 //
 //
+DeclareSciCallR0(GetCodePage, GETCODEPAGE, int);
 DeclareSciCallR0(GetLineCount, GETLINECOUNT, int);
 DeclareSciCallR0(GetLength, GETLENGTH, int);
 DeclareSciCallR0(GetSelectionMode, GETSELECTIONMODE, int);
@@ -80,13 +81,17 @@ DeclareSciCallR0(GetSelStart, GETSELECTIONSTART, int);
 DeclareSciCallR0(GetSelEnd, GETSELECTIONEND, int);
 DeclareSciCallV2(SetSel, SETSEL, int, anchorPos, int, currentPos);
 DeclareSciCallV2(ReplaceSel, REPLACESEL, int, unused, const char*, text);
+DeclareSciCallR0(CharLeftExtEnd, CHARLEFTEXTEND, int);
+DeclareSciCallR0(CharRightExtEnd, CHARRIGHTEXTEND, int);
 DeclareSciCallR0(GetSelections, GETSELECTIONS, int);
 DeclareSciCallR1(GetSelectionNStart, GETSELECTIONNSTART, Sci_Position, int, position);
 DeclareSciCallR1(GetSelectionNEnd, GETSELECTIONNEND, Sci_Position, int, position);
 DeclareSciCallV1(GotoPos, GOTOPOS, int, position);
 DeclareSciCallV1(GotoLine, GOTOLINE, int, line);
 DeclareSciCallR0(GetCurrentPos, GETCURRENTPOS, int);
+DeclareSciCallV1(SetCurrentPos, SETCURRENTPOS, int, position);
 DeclareSciCallR0(GetAnchor, GETANCHOR, int);
+DeclareSciCallV1(SetAnchor, SETANCHOR, int, position);
 DeclareSciCallR1(LineFromPosition, LINEFROMPOSITION, int, int, position);
 DeclareSciCallR1(LineEndPosition, GETLINEENDPOSITION, int, int, line);
 DeclareSciCallR1(PositionFromLine, POSITIONFROMLINE, int, int, line);
@@ -95,6 +100,8 @@ DeclareSciCallV2(FindText, FINDTEXT, int, searchFlags, struct Sci_TextToFind *, 
 DeclareSciCallV2(AddText, ADDTEXT, int, length, const char*, text);
 DeclareSciCallR2(GetText, GETTEXT, int, int, length, char*, text);
 DeclareSciCallR2(GetTextRange, GETTEXTRANGE, int, int, unused, struct Sci_TextRange*, tr);
+
+DeclareSciCallV0(ChooseCaretX, CHOOSECARETX);
 
 DeclareSciCallV0(SetSavePoint, SETSAVEPOINT);
 DeclareSciCallV0(BeginUndoAction, BEGINUNDOACTION);

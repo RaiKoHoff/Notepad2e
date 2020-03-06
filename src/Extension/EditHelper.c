@@ -28,6 +28,7 @@ extern TBBUTTON tbbMainWnd[];
 extern HWND hwndToolbar;
 extern HWND hwndMain;
 extern HWND hDlgFindReplace;
+extern int iOpenSaveFilterIndex;
 
 BOOL n2e_JoinLines_InitSelection()
 {
@@ -113,9 +114,9 @@ void n2e_StripHTMLTags(const HWND hwnd)
 
 BOOL n2e_ShowPromptIfSelectionModeIsRectangle(const HWND hwnd)
 {
-  if (SC_SEL_RECTANGLE == SendMessage(hwnd, SCI_GETSELECTIONMODE, 0, 0))
+  if (n2e_IsRectangularSelection())
   {
-    MsgBox(MBINFO, IDS_SELRECT);
+    MsgBox(MBWARN, IDS_SELRECT);
     return TRUE;
   }
   return FALSE;
@@ -449,7 +450,35 @@ BOOL n2e_OpenNextFile(const HWND hwnd, LPCWSTR file, const BOOL next)
     StrCat(dirname, L"\\");
   }
   StrCpy(odn, dirname);
-  StrCat(dirname, L"*");
+
+  // [2e]: Open Next/Previous - use current dialog filter #277
+  WCHAR szFileFilter[MAX_PATH] = { L"*" };
+  if (iOpenSaveFilterIndex >= 1)
+  {
+    WCHAR szFilter[MAX_PATH] = { 0 };
+    Style_GetOpenDlgFilterStr(szFilter, COUNTOF(szFilter));
+
+    LPCWSTR psz = szFilter;
+    int iFilterIndex = iOpenSaveFilterIndex;
+    int iLineIndex = 0;
+    while (*psz)
+    {
+      if (iLineIndex % 2)
+      {
+        --iFilterIndex;
+        if (iFilterIndex == 0)
+        {
+          StrCpy(szFileFilter, psz);
+          break;
+        }
+      }
+      psz += wcslen(psz) + 1;
+      ++iLineIndex;
+    }
+  }
+  // [/2e]
+  StrCat(dirname, szFileFilter);
+
   hFind = FindFirstFile(dirname, &ffd);
   if (INVALID_HANDLE_VALUE == hFind)
   {
@@ -694,14 +723,14 @@ void n2e_EscapeHTML(const HWND hwnd)
     beg = 0;
     end = SendMessage(hwnd, SCI_GETTEXTLENGTH, 0, 0);
   }
-  ttf.lpstrText = (char*)n2e_Alloc(2);
-  ttf.lpstrText[1] = '\0';
+  char buffer[2] = { 0, 0 };
+  ttf.lpstrText = buffer;
   changed = FALSE;
   for (symb = 0; symb < strlen(_source); ++symb)
   {
     ttf.chrg.cpMin = beg;
     ttf.chrg.cpMax = end;
-    ttf.lpstrText[0] = _source[symb];
+    buffer[0] = _source[symb];
     int res = 0;
     while (-1 != res)
     {
@@ -724,7 +753,6 @@ void n2e_EscapeHTML(const HWND hwnd)
   {
     SendMessage(hwnd, SCI_SETSEL, beg, end);
   }
-  n2e_Free(ttf.lpstrText);
   SendMessage(hwnd, SCI_ENDUNDOACTION, 0, 0);
 }
 
@@ -921,6 +949,11 @@ void remove_char(char* str, char c)
   *pw = '\0';
 }
 
+int n2e_MultiByteToWideChar(LPCSTR lpMultiByteStr, const int cbMultiByte, LPWSTR lpWideCharStr, const int cchWideChar)
+{
+  return MultiByteToWideChar(SciCall_GetCodePage(), 0, lpMultiByteStr, cbMultiByte, lpWideCharStr, cchWideChar);
+}
+
 BOOL n2e_FilteredPasteFromClipboard(const HWND hwnd)
 {
   char *pClip = EditGetClipboardText(hwndEdit);
@@ -928,10 +961,9 @@ BOOL n2e_FilteredPasteFromClipboard(const HWND hwnd)
   {
     remove_char(pClip, '\r');
     remove_char(pClip, '\n');
-    const UINT codePage = SendMessage(hwndEdit, SCI_GETCODEPAGE, 0, 0);
-    const int textLength = MultiByteToWideChar(codePage, 0, pClip, -1, NULL, 0);
+    const int textLength = n2e_MultiByteToWideChar(pClip, -1, NULL, 0);
     LPWSTR pWideText = LocalAlloc(LPTR, textLength * 2);
-    MultiByteToWideChar(codePage, 0, pClip, -1, pWideText, textLength);
+    n2e_MultiByteToWideChar(pClip, -1, pWideText, textLength);
     SendMessage(hwnd, EM_REPLACESEL, (WPARAM)TRUE, (LPARAM)pWideText);
     LocalFree(pWideText);
     LocalFree(pClip);
@@ -1374,7 +1406,7 @@ BOOL n2e_IsFindReplaceAvailable(LPCEDITFINDREPLACE lpefr)
 #ifndef ICU_BUILD
   return TRUE;
 #else
-  if (((lpefr->fuFlags & SCFIND_REGEXP) == 0) || n2e_IsUnicodeEncodingMode() || (iEncoding == CPI_UTF8))
+  if (((lpefr->fuFlags & SCFIND_REGEXP) == 0) || n2e_IsUnicodeEncodingMode() || n2e_IsUTF8EncodingMode())
     return TRUE;
 
   if (InfoBox(MBYESNO, L"MsgICURegexWarning", IDS_WARN_ICU_REGEX) != IDYES)

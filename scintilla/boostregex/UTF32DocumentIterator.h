@@ -17,7 +17,7 @@ public:
 	{
 	}
 
-	UTF32DocumentIterator(Document* doc, int pos, int end) :
+	UTF32DocumentIterator(Scintilla::Document* doc, int pos, int end) :
 		m_doc(doc),
 		m_pos(pos),
 		m_end(end),
@@ -140,7 +140,7 @@ private:
 	int m_end;
 	int m_utf8Length;
 	int m_utf16Length;
-	Document* m_doc;
+	Scintilla::Document* m_doc;
 };
 
 #endif	// #ifdef ICU_BUILD

@@ -53,7 +53,7 @@ BOOL n2e_IsPaneSizePoint(const HWND hwnd, POINT pt)
 
 void n2e_OnPaneSizeClick(const HWND hwnd, const BOOL bLeftClick)
 {
-  if (bLeftClick)
+  if (!bLeftClick)
   {
     ++modeExpressionValue;
     if (modeExpressionValue > EVM_MAX)
@@ -90,7 +90,7 @@ BOOL n2e_FormatEvaluatedExpression(const HWND hwnd, WCHAR* tchBuffer, const int 
   if (n2e_IsExpressionEvaluationEnabled())
   {
     char *pszText = NULL;
-    if (SciCall_GetSelectionMode() == SC_SEL_RECTANGLE)
+    if (n2e_IsRectangularSelection())
     {
       pszText = LocalAlloc(LPTR, MAX_EXPRESSION_LENGTH + 1);
       const int iSelections = SciCall_GetSelections();

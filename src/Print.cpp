@@ -24,6 +24,7 @@
 #include <shlwapi.h>
 #include <commdlg.h>
 #include <string.h>
+#include <vector>
 #include "platform.h"
 #include "scintilla.h"
 #include "scilexer.h"
@@ -74,7 +75,7 @@ extern "C" BOOL EditPrint(HWND hwnd, LPCWSTR pszDocTitle, LPCWSTR pszPageFormat)
 
   // Don't print empty documents
   if (SendMessage(hwnd, SCI_GETLENGTH, 0, 0) == 0) {
-    MsgBox(MBINFO, IDS_PRINT_EMPTY);
+    MsgBox(MBWARN, IDS_PRINT_EMPTY);
     return TRUE;
   }
 

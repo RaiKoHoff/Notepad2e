@@ -2,7 +2,7 @@
 
 static unsigned char s_firstByteMask[7] = { 0x7F, 0x3F, 0x1F, 0x0F, 0x07, 0x03, 0x01 };
 
-void ReadCharacterFromUTF8(Document* _doc, const int _pos, const int _end,
+void ReadCharacterFromUTF8(Scintilla::Document* _doc, const Sci::Position _pos, const Sci::Position _end,
 	wchar_t* _character, int& _characterIndex, int& _utf8Length, int& _utf16Length)
 {
 	unsigned char currentChar = _doc->CharAt(_pos);
@@ -18,7 +18,7 @@ void ReadCharacterFromUTF8(Document* _doc, const int _pos, const int _end,
 		} while (currentChar & mask);
 
 		int result = currentChar & s_firstByteMask[nBytes];
-		int pos = _pos;
+		Sci::Position pos = _pos;
 		_utf8Length = 1;
 		// work out the unicode point, and count the actual bytes.
 		// If a byte does not start with 10xxxxxx then it's not part of the 

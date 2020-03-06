@@ -9,17 +9,21 @@
  */
 #include <stdlib.h>
 #include <iterator> 
+#include <memory>
 #include <vector>
 #include "scintilla.h"
 #include "Platform.h"
 #include "SplitVector.h"
 #include "Partitioning.h"
 #include "RunStyles.h"
+#include "Position.h"
 #include "CellBuffer.h"
 #include "CharClassify.h"
 #include "Decoration.h"
 #include "ILexer.h"
+#include "ILoader.h"
 #include "CaseFolder.h"
+#include "../scintilla/lexlib/CharacterCategory.h"
 #include "Document.h"
 #include "UniConversion.h"
 #include "BoostRegexSearch.h"
@@ -36,12 +40,7 @@
 #define CP_UTF8 65001
 #define SC_CP_UTF8 65001
 
-
-
-#ifdef SCI_NAMESPACE
 using namespace Scintilla;
-#endif
-
 using namespace boost;
 
 class BoostRegexSearch : public RegexSearchBase
@@ -55,10 +54,10 @@ public:
 		_substituted = NULL;
 	}
 	
-	virtual long FindText(Document* doc, int startPosition, int endPosition, const char *regex,
-                        bool caseSensitive, bool word, bool wordStart, int sciSearchFlags, int *lengthRet);
+	virtual Sci::Position FindText(Document* doc, Sci::Position startPosition, Sci::Position endPosition, const char *regex,
+                        bool caseSensitive, bool word, bool wordStart, int sciSearchFlags, Sci::Position *lengthRet);
 	
-	virtual const char *SubstituteByPosition(Document* doc, const char *text, int *length);
+	virtual const char *SubstituteByPosition(Document* doc, const char *text, Sci::Position *length);
 
 private:
 	class SearchParameters;
@@ -67,7 +66,7 @@ private:
 	public:
 		Match() : _document(NULL), _documentModified(false), _position(-1), _endPosition(-1), _endPositionForContinuationCheck(-1)  {}
 		~Match() { setDocument(NULL); }
-		Match(Document* document, int position = -1, int endPosition = -1) : _document(NULL) { set(document, position, endPosition); }
+		Match(Document* document, Sci::Position position = -1, Sci::Position endPosition = -1) : _document(NULL) { set(document, position, endPosition); }
 		Match& operator=(const Match& m) {
 			set(m._document, m.position(), m.endPosition());
 			return *this;
@@ -77,14 +76,14 @@ private:
 			return *this;
 		}
 		
-		void set(Document* document = NULL, int position = -1, int endPosition = -1) {
+		void set(Document* document = NULL, Sci::Position position = -1, Sci::Position endPosition = -1) {
 			setDocument(document);
 			_position = position;
 			_endPositionForContinuationCheck = _endPosition = endPosition;
 			_documentModified = false;
 		}
 		
-		bool isContinuationSearch(Document* document, int startPosition, int direction) {
+		bool isContinuationSearch(Document* document, Sci::Position startPosition, Sci::Position direction) {
 			if (hasDocumentChanged(document))
 				return false;
 			if (direction > 0) 
@@ -95,13 +94,13 @@ private:
 		bool isEmpty() {
 			return _position == _endPosition;
 		}
-		int position() const {
+		Sci::Position position() const {
 			return _position;
 		}
-		int endPosition() const {
+		Sci::Position endPosition() const {
 			return _endPosition;
 		}
-		int length() {
+		Sci::Position length() {
 			return _endPosition - _position;
 		}
 		int found() {
@@ -146,7 +145,7 @@ private:
 			}
 		}
 
-		virtual void NotifyDeleted(Document* deletedDocument, void* /*userData*/)
+		virtual void NotifyDeleted(Document* deletedDocument, void* /*userData*/) noexcept
 		{
 			if (deletedDocument == _document)
 			{
@@ -159,14 +158,14 @@ private:
 		}
 		virtual void NotifyModifyAttempt(Document* /*document*/, void* /*userData*/) {}
 		virtual void NotifySavePoint(Document* /*document*/, void* /*userData*/, bool /*atSavePoint*/) {}
-		virtual void NotifyStyleNeeded(Document* /*document*/, void* /*userData*/, int /*endPos*/) {}
+		virtual void NotifyStyleNeeded(Document* /*document*/, void* /*userData*/, Sci::Position /*endPos*/) {}
 		virtual void NotifyLexerChanged(Document* /*document*/, void* /*userData*/) {}
 		virtual void NotifyErrorOccurred(Document* /*document*/, void* /*userData*/, int /*status*/) {}
 		
 		Document* _document;
 		bool _documentModified;
-		int _position, _endPosition;
-		int _endPositionForContinuationCheck;
+		Sci::Position _position, _endPosition;
+		Sci::Position _endPositionForContinuationCheck;
 	};
 	
 	class CharTPtr { // Automatically translatable from utf8 to wchar_t*, if required, with allocation and deallocation on destruction; char* is not deallocated.
@@ -219,7 +218,7 @@ private:
 		EncodingDependent() : _lastCompileFlags(-1) {}
 		void compileRegex(const char *regex, const int compileFlags);
 		Match FindText(SearchParameters& search);
-		char *SubstituteByPosition(const char *text, int *length);
+		char *SubstituteByPosition(const char *text, Sci::Position *length);
 	private:
 		Match FindTextImpl(SearchParameters& search);
 
@@ -242,8 +241,8 @@ private:
 	
 	class SearchParameters {
 	public:
-		bool isLineStart(int position);
-		bool isLineEnd(int position);
+		bool isLineStart(Sci::Position position);
+		bool isLineEnd(Sci::Position position);
 		
 		Document* _document;
 		RESearchRange _resr;
@@ -251,18 +250,18 @@ private:
 		int _compileFlags;
 		regex_constants::match_flag_type _boostRegexFlags;
 		bool _reverseSearchFlag;
-		SearchParameters(Document* doc, int startPosition, int endPosition) : _document(doc), _resr(doc, startPosition, endPosition), _reverseSearchFlag(false) {}
+		SearchParameters(Document* doc, Sci::Position startPosition, Sci::Position endPosition) : _document(doc), _resr(doc, startPosition, endPosition), _reverseSearchFlag(false) {}
 	};
 
 #ifdef ICU_BUILD
 	static UChar32 *utf8ToUchar32(const char *utf8);
-	static char    *stringToCharPtr(const std::basic_string<UChar32, std::char_traits<UChar32>, std::allocator<UChar32>>& str, int *lengthRet);
+	static char    *stringToCharPtr(const std::basic_string<UChar32, std::char_traits<UChar32>, std::allocator<UChar32>>& str, Sci::Position *lengthRet);
 
 	EncodingDependent<UChar32, UTF32DocumentIterator> _utf32;
 #else
 	static wchar_t *utf8ToWchar(const char *utf8);
-	static char    *stringToCharPtr(const std::string& str, int *lengthRet);
-	static char    *stringToCharPtr(const std::wstring& str, int *lengthRet);
+	static char    *stringToCharPtr(const std::string& str, Sci::Position *lengthRet);
+	static char    *stringToCharPtr(const std::wstring& str, Sci::Position *lengthRet);
 
 	EncodingDependent<char, AnsiDocumentIterator> _ansi;
 	EncodingDependent<wchar_t, UTF8DocumentIterator> _utf8;
@@ -280,9 +279,12 @@ namespace Scintilla
 #endif
 
 #ifdef SCI_OWNREGEX
-RegexSearchBase *CreateRegexSearch(CharClassify* /* charClassTable */)
+namespace Scintilla
 {
-	return new BoostRegexSearch();
+	RegexSearchBase *CreateRegexSearch(CharClassify* /* charClassTable */)
+	{
+		return new BoostRegexSearch();
+	}
 }
 #endif
 
@@ -295,8 +297,8 @@ RegexSearchBase *CreateRegexSearch(CharClassify* /* charClassTable */)
  * searches (just pass startPosition > endPosition to do a backward search).
  */
 
-long BoostRegexSearch::FindText(Document* doc, int startPosition, int endPosition, const char *regexString,
-                        bool caseSensitive, bool /*word*/, bool /*wordStart*/, int sciSearchFlags, int *lengthRet) 
+Sci::Position BoostRegexSearch::FindText(Document* doc, Sci::Position startPosition, Sci::Position endPosition, const char *regexString,
+                        bool caseSensitive, bool /*word*/, bool /*wordStart*/, int sciSearchFlags, Sci::Position *lengthRet)
 {
 	try {
 		SearchParameters search(doc, startPosition, endPosition);
@@ -350,7 +352,7 @@ BoostRegexSearch::Match BoostRegexSearch::EncodingDependent<CharT, CharacterIter
 	bool found = false;
 	// Line by line.
 	Range lineRangeCurrent(0);
-	for (int line = search._resr.lineRangeStart; line != search._resr.lineRangeBreak; line += search._resr.increment) {
+	for (Sci::Line line = search._resr.lineRangeStart; line != search._resr.lineRangeBreak; line += search._resr.increment) {
 		const Range lineRange = search._resr.LineRange(line);
 		lineRangeCurrent = lineRange;
 
@@ -368,8 +370,8 @@ BoostRegexSearch::Match BoostRegexSearch::EncodingDependent<CharT, CharacterIter
 			found = false;
 		}
 		if (found) {
-			const int  position = _match[0].first.pos();
-			const int  length   = _match[0].second.pos() - position;
+			const Sci::Position position = _match[0].first.pos();
+			const Sci::Position length   = _match[0].second.pos() - position;
 			break;
 		}
 	}
@@ -427,21 +429,21 @@ void BoostRegexSearch::EncodingDependent<CharT, CharacterIterator>::compileRegex
 	}
 }
 
-bool BoostRegexSearch::SearchParameters::isLineStart(int position)
+bool BoostRegexSearch::SearchParameters::isLineStart(Sci::Position position)
 {
 	return (position == 0)
 		|| _document->CharAt(position-1) == '\n'
 		|| _document->CharAt(position-1) == '\r' && _document->CharAt(position) != '\n';
 }
 
-bool BoostRegexSearch::SearchParameters::isLineEnd(int position)
+bool BoostRegexSearch::SearchParameters::isLineEnd(Sci::Position position)
 {
 	return (position == _document->Length())
 		|| _document->CharAt(position) == '\r'
 		|| _document->CharAt(position) == '\n' && (position == 0 || _document->CharAt(position-1) != '\n');
 }
 
-const char *BoostRegexSearch::SubstituteByPosition(Document* doc, const char *text, int *length) {
+const char *BoostRegexSearch::SubstituteByPosition(Document* doc, const char *text, Sci::Position *length) {
 	delete[] _substituted;
 	_substituted = 
 #ifdef ICU_BUILD
@@ -455,7 +457,7 @@ const char *BoostRegexSearch::SubstituteByPosition(Document* doc, const char *te
 }
 
 template <class CharT, class CharacterIterator>
-char *BoostRegexSearch::EncodingDependent<CharT, CharacterIterator>::SubstituteByPosition(const char *text, int *length) {
+char *BoostRegexSearch::EncodingDependent<CharT, CharacterIterator>::SubstituteByPosition(const char *text, Sci::Position *length) {
 #ifdef ICU_BUILD
 	return stringToCharPtr(_match.format((const UChar32*)CharTPtr(text), boost::format_all, _regex), length);
 #else
@@ -473,7 +475,7 @@ UChar32 *BoostRegexSearch::utf8ToUchar32(const char *utf8)
 	return ws;
 }
 
-char *BoostRegexSearch::stringToCharPtr(const std::basic_string<UChar32, std::char_traits<UChar32>, std::allocator<UChar32>>& str, int *lengthRet)
+char *BoostRegexSearch::stringToCharPtr(const std::basic_string<UChar32, std::char_traits<UChar32>, std::allocator<UChar32>>& str, Sci::Position *lengthRet)
 {
 	std::string s;
 	icu::UnicodeString us = icu::UnicodeString::fromUTF32(str.c_str(), str.length());
@@ -501,19 +503,19 @@ wchar_t *BoostRegexSearch::utf8ToWchar(const char *utf8)
 	return w;
 }
 
-char *BoostRegexSearch::stringToCharPtr(const std::string& str, int *lengthRet)
+char *BoostRegexSearch::stringToCharPtr(const std::string& str, Sci::Position *lengthRet)
 {
-	int length = str.length();
+	size_t length = str.length();
 	char *charPtr = new char[length + 1];
 	memcpy_s(charPtr, length, str.c_str(), length);
 	*lengthRet = length;
 	return charPtr;
 }
 
-char *BoostRegexSearch::stringToCharPtr(const std::wstring& str, int *lengthRet)
+char *BoostRegexSearch::stringToCharPtr(const std::wstring& str, Sci::Position *lengthRet)
 {
-	int wcharSize = str.length();
-	int charSize = UTF8Length(str.c_str(), wcharSize, true);
+	size_t wcharSize = str.length();
+	size_t charSize = UTF8Length(str.c_str(), wcharSize, true);
 	char *c = new char[charSize + 1];
 	UTF8FromUTF16(str.c_str(), wcharSize, c, charSize, true);
 	c[charSize] = 0;

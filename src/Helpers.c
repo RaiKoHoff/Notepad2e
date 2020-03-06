@@ -1132,7 +1132,29 @@ BOOL PathGetLnkPath(LPCWSTR pszLnkFile, LPWSTR pszResPath, int cchResPath)
       lstrcpy(wsz, pszLnkFile);
       if (SUCCEEDED(ppf->lpVtbl->Load(ppf, wsz, STGM_READ)))
       {
-        if (NOERROR == psl->lpVtbl->GetPath(psl, pszResPath, cchResPath, &fd, 0))
+        // [2e]: Add to Favorites - selection mode #249
+        if ((NOERROR == psl->lpVtbl->GetArguments(psl, pszResPath, cchResPath)) && (wcslen(pszResPath) > 0))
+        {
+          int i = 0;
+          LPWSTR* szArglist = CommandLineToArgvW(pszResPath, &i);
+          if (szArglist)
+          {
+            --i;
+            while (i >= 0)
+            {
+              if (wcslen(szArglist[i]) > 0)
+              {
+                wcscpy_s(pszResPath, cchResPath, szArglist[i]);
+                bSucceeded = TRUE;
+                break;
+              }
+              --i;
+            }
+            LocalFree(szArglist);
+          }
+        }
+        // [/2e]
+        if (!bSucceeded && (NOERROR == psl->lpVtbl->GetPath(psl, pszResPath, cchResPath, &fd, 0)))
           bSucceeded = TRUE;
       }
       ppf->lpVtbl->Release(ppf);
@@ -1171,7 +1193,7 @@ BOOL PathIsLnkToDirectory(LPCWSTR pszPath, LPWSTR pszResPath, int cchResPath)
 
   if (PathIsLnkFile(pszPath))
   {
-    if (PathGetLnkPath(pszPath, tchResPath, sizeof(WCHAR) *COUNTOF(tchResPath)))
+    if (PathGetLnkPath(pszPath, tchResPath, COUNTOF(tchResPath)))
     {
       if (PathIsDirectory(tchResPath))
       {
@@ -1276,7 +1298,7 @@ BOOL PathCreateDeskLnk(LPCWSTR pszDocument)
 //
 //  Manipulates:
 //
-BOOL PathCreateFavLnk(LPCWSTR pszName, LPCWSTR pszTarget, LPCWSTR pszDir)
+BOOL PathCreateFavLnk(LPCWSTR pszName, LPCWSTR pszTarget, LPCWSTR pszArguments, LPCWSTR pszDir)
 {
 
   WCHAR tchLnkFileName[MAX_PATH];
@@ -1306,6 +1328,10 @@ BOOL PathCreateFavLnk(LPCWSTR pszName, LPCWSTR pszTarget, LPCWSTR pszDir)
       lstrcpy(wsz, tchLnkFileName);
 
       psl->lpVtbl->SetPath(psl, pszTarget);
+      if (pszArguments)
+      {
+        psl->lpVtbl->SetArguments(psl, pszArguments);
+      }
 
       if (SUCCEEDED(ppf->lpVtbl->Save(ppf, wsz, TRUE)))
         bSucceeded = TRUE;
