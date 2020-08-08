@@ -126,6 +126,8 @@ WCHAR      tchToolbarButtons[512];
 WCHAR      tchToolbarBitmap[MAX_PATH];
 WCHAR      tchToolbarBitmapHot[MAX_PATH];
 WCHAR      tchToolbarBitmapDisabled[MAX_PATH];
+// [2e]: Resize statusbar groups #304
+WCHAR      tchDocPos[MAX_PATH] = { 0 };
 enum EPathNameFormat iPathNameFormat = PNM_FILENAMEONLY;
 BOOL      fWordWrap;
 BOOL      fWordWrapG;
@@ -173,7 +175,7 @@ RECT      pagesetupMargin;
 BOOL      bSaveBeforeRunningTools;
 int       iFileWatchingMode;
 BOOL      bResetFileWatching;
-DWORD     dwFileCheckInverval;
+DWORD     dwFileCheckInterval;
 DWORD     dwAutoReloadTimeout;
 enum EEscFunction iEscFunction = EEF_IGNORE;
 BOOL      bAlwaysOnTop;
@@ -358,7 +360,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInst, LPSTR lpCmdLine, in
   GetModuleFileName(NULL, wchWorkingDirectory, COUNTOF(wchWorkingDirectory));
   PathRemoveFileSpec(wchWorkingDirectory);
   SetCurrentDirectory(wchWorkingDirectory);
-
+  
   SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOOPENFILEERRORBOX);
 
   // check if running at least on Windows 2000
@@ -658,6 +660,13 @@ HWND InitInstance(HINSTANCE hInstance, LPSTR pszCmdLine, int nCmdShow)
   {
     ShowWindow(hwndMain, nCmdShow);
     UpdateWindow(hwndMain);
+
+#ifdef LPEG_LEXER
+    if (!bLPegEnabled)
+    {
+      InfoBox(MBWARN, L"MsgLPegNotSet", IDS_ERR_LPEG_NOT_CONFIGURED);
+    }
+#endif
   }
   else
   {
@@ -878,12 +887,15 @@ LRESULT CALLBACK MainWndProc(HWND hwnd, UINT umsg, WPARAM wParam, LPARAM lParam)
     case WM_NCPAINT:
     case WM_PAINT:
     case WM_ERASEBKGND:
-    case WM_NCMOUSEMOVE:
     case WM_NCLBUTTONDOWN:
     case WM_WINDOWPOSCHANGING:
     case WM_WINDOWPOSCHANGED:
       return DefWindowProc(hwnd, umsg, wParam, lParam);
 
+    // [2e]: Pointer remains hidden when moving cursor over window caption #314
+    case WM_NCMOUSEMOVE:
+      n2e_OnMouseVanishEvent(TRUE);
+      return DefWindowProc(hwnd, umsg, wParam, lParam);
 
     // [2e]: DPI awareness #154
     case WM_NCCREATE:
@@ -1951,7 +1963,8 @@ void MsgSize(HWND hwnd, WPARAM wParam, LPARAM lParam)
   EndDeferWindowPos(hdwp);
 
   // Statusbar width
-  aWidth[0] = max(120, min(cx / 3, StatusCalcPaneWidth(hwndStatus, L"Ln 9'999'999 : 9'999'999   Col 9'999'999 : 999   Sel 9'999'999")));
+  // [2e]: Resize statusbar groups #304
+  aWidth[0] = max(cx/3, StatusCalcPaneWidth(hwndStatus, tchDocPos));
   aWidth[1] = aWidth[0] + max(StatusCalcPaneWidth(hwndStatus, arrwchExpressionValue), StatusCalcPaneWidth(hwndStatus, L"9'999'999 Bytes"));
   aWidth[2] = aWidth[1] + StatusCalcPaneWidth(hwndStatus, L"Unicode BE BOM");
   aWidth[3] = aWidth[2] + StatusCalcPaneWidth(hwndStatus, L"CR+LF");
@@ -2003,10 +2016,7 @@ void MsgInitMenu(HWND hwnd, WPARAM wParam, LPARAM lParam)
   CheckCmd(hmenu, IDM_FILE_READONLY, bReadOnly);
 
   // [2e]: Save on deactivate #164
-  CheckCmd(hmenu, ID_SAVEONLOSEFOCUS_DISABLED, iSaveOnLoseFocus == SLF_DISABLED);
-  CheckCmd(hmenu, ID_SAVEONLOSEFOCUS_ENABLED, iSaveOnLoseFocus == SLF_ENABLED);
-  CheckCmd(hmenu, ID_SAVEONLOSEFOCUS_ENABLEDUNTILANEWFILE, iSaveOnLoseFocus == SLF_ENABLED_UNTIL_NEW_FILE);
-  // [/2e]
+  CheckMenuRadioItem(hmenu, ID_SAVEONLOSEFOCUS_DISABLED, ID_SAVEONLOSEFOCUS_ENABLEDUNTILANEWFILE, n2e_GetCurrentSaveOnLoseFocusMenuID(), MF_BYCOMMAND);
 
   EnableCmd(hmenu, IDM_ENCODING_RECODE, i);
   if (mEncoding[iEncoding].uFlags & NCP_UNICODE_REVERSE)
@@ -2100,9 +2110,6 @@ void MsgInitMenu(HWND hwnd, WPARAM wParam, LPARAM lParam)
   EnableCmd(hmenu, IDM_EDIT_SELTOMATCHINGBRACE, i);
   // [2e]: Go To dialog - make similar to Find/Replace #260
   EnableCmd(hmenu, IDM_EDIT_GOTOLINE, i);
-  // [2e]: Minor: disable Edit Mode menu commands #151
-  EnableCmd(hmenu, ID_EDIT_EDITSELECTION, bHighlightSelection);
-  EnableCmd(hmenu, ID_EDIT_EDITSELECTION_LINE, bHighlightSelection);
   // [2e]: Disable more Edit commands on empty buffer #268
   EnableCmd(hmenu, IDM_EDIT_STRIP_HTML_TAGS, i);
   EnableCmd(hmenu, ID_SPECIAL_ESCAPEHTML, i);
@@ -2129,7 +2136,14 @@ void MsgInitMenu(HWND hwnd, WPARAM wParam, LPARAM lParam)
   i = (int)SendMessage(hwndEdit, SCI_GETLEXER, 0, 0);
   CheckCmd(hmenu, IDM_VIEW_AUTOCLOSETAGS, bAutoCloseTags);
   CheckCmd(hmenu, IDM_VIEW_HIGHLIGHTCURRENTLINE, bHighlightCurrentLine);
-  CheckCmd(hmenu, IDM_VIEW_HIGHLIGHTCURRENTWORD, bHighlightSelection);
+
+  // [2e]: Improve selection/word highlighting #286
+  CheckMenuRadioItem(hmenu, IDM_VIEW_HIGHLIGHTCURRENTSELECTION_DISABLED,
+                      IDM_VIEW_HIGHLIGHTCURRENTSELECTION_WORDIFNOSELECTION,
+                      n2e_GetCurrentHighlightCurrentSelectionMenuID(), MF_BYCOMMAND);
+  CheckCmd(hmenu, IDM_VIEW_HIGHLIGHTCURRENTSELECTION_EDITWORD, bEditSelectionScope);
+  // [/2e]
+
   i = IniGetInt(L"Settings2", L"ReuseWindow", 0);
   CheckCmd(hmenu, IDM_VIEW_REUSEWINDOW, i);
   i = IniGetInt(L"Settings2", L"SingleFileInstance", 0);
@@ -2157,10 +2171,7 @@ void MsgInitMenu(HWND hwnd, WPARAM wParam, LPARAM lParam)
 
   i = lstrlen(szIniFile);
   // [2e]: Save on exit and History #101
-  CheckCmd(hmenu, IDM_VIEW_SAVESETTINGS_MODE_ALL, (nSaveSettingsMode == SSM_ALL) && i);
-  CheckCmd(hmenu, IDM_VIEW_SAVESETTINGS_MODE_RECENT, (nSaveSettingsMode == SSM_RECENT) && i);
-  CheckCmd(hmenu, IDM_VIEW_SAVESETTINGS_MODE_NO, (nSaveSettingsMode == SSM_NO) && i);
-  // [/2e]
+  CheckMenuRadioItem(hmenu, IDM_VIEW_SAVESETTINGS_MODE_ALL, IDM_VIEW_SAVESETTINGS_MODE_NO, n2e_GetCurrentSaveSettingsMenuID(), MF_BYCOMMAND);
 
   EnableCmd(hmenu, IDM_VIEW_REUSEWINDOW, i);
   EnableCmd(hmenu, IDM_VIEW_STICKYWINPOS, i);
@@ -2180,9 +2191,7 @@ void MsgInitMenu(HWND hwnd, WPARAM wParam, LPARAM lParam)
   // [2e]: Implement Notepad's right click behavior #54
   CheckCmd(hmenu, ID_SETTINGS_MOVE_CARET_ON_RCLICK, bMoveCaretOnRightClick);
   // [2e]: MathEval INI setting #88
-  CheckCmd(hmenu, ID_SETTINGS_EVAL_DISABLED, iEvaluateMathExpression == EEM_DISABLED);
-  CheckCmd(hmenu, ID_SETTINGS_EVAL_SELECTION, iEvaluateMathExpression == EEM_SELECTION);
-  CheckCmd(hmenu, ID_SETTINGS_EVAL_LINE, iEvaluateMathExpression == EEM_LINE);
+  CheckMenuRadioItem(hmenu, ID_SETTINGS_EVAL_DISABLED, ID_SETTINGS_EVAL_LINE, n2e_GetCurrentEvalMenuID(), MF_BYCOMMAND);
   // [2e]: ctrl + arrow behavior toggle #89
   CheckCmd(hmenu, ID_SETTINGS_WORD_NAVIGATION, iWordNavigationMode == WNM_ACCELERATED);
   // [/2e]
@@ -2880,9 +2889,13 @@ LRESULT MsgCommand(HWND hwnd, WPARAM wParam, LPARAM lParam)
 
     // [2e]: "Go To Last Change" menu command (Undo+Redo)
     case ID_EDIT_UNDO_REDO:
-      SendMessage(hwndEdit, SCI_UNDO, 0, 0);
-      SendMessage(hwndEdit, SCI_REDO, 0, 0);
-      EditSelectEx(hwndEdit, SciCall_GetAnchor(), SciCall_GetCurrentPos());
+      // [2e]: Go To Last Change - do not Redo if no Undo #306
+      if (SendMessage(hwndEdit, SCI_CANUNDO, 0, 0))
+      {
+        SendMessage(hwndEdit, SCI_UNDO, 0, 0);
+        SendMessage(hwndEdit, SCI_REDO, 0, 0);
+        EditSelectEx(hwndEdit, SciCall_GetAnchor(), SciCall_GetCurrentPos());
+      }
       break;
     // [/2e]
 
@@ -4115,14 +4128,6 @@ LRESULT MsgCommand(HWND hwnd, WPARAM wParam, LPARAM lParam)
       break;
 
 
-    // [2e]: Edit highlighted word #18
-    case IDM_VIEW_HIGHLIGHTCURRENTWORD:
-      bHighlightSelection = (bHighlightSelection) ? FALSE : TRUE;
-      n2e_SelectionUpdate(SUM_INIT);
-      break;
-    // [/2e]
-
-
     case IDM_VIEW_ZOOMIN:
       SendMessage(hwndEdit, SCI_ZOOMIN, 0, 0);
       break;
@@ -5273,6 +5278,37 @@ LRESULT MsgCommand(HWND hwnd, WPARAM wParam, LPARAM lParam)
       break;
     // [/2e]
 
+    // [2e]: Improve selection/word highlighting #286
+    case IDM_VIEW_HIGHLIGHTCURRENTSELECTION_DISABLED:
+      iHighlightSelection = HCS_DISABLED;
+      n2e_SelectionUpdate(SUM_INIT);
+      break;
+
+    case IDM_VIEW_HIGHLIGHTCURRENTSELECTION_WORD:
+      iHighlightSelection = HCS_WORD;
+      n2e_SelectionUpdate(SUM_INIT);
+      break;
+
+    case IDM_VIEW_HIGHLIGHTCURRENTSELECTION_SELECTION:
+      iHighlightSelection = HCS_SELECTION;
+      n2e_SelectionUpdate(SUM_INIT);
+      break;
+
+    case IDM_VIEW_HIGHLIGHTCURRENTSELECTION_WORDANDSELECTION:
+      iHighlightSelection = HCS_WORD_AND_SELECTION;
+      n2e_SelectionUpdate(SUM_INIT);
+      break;
+
+    case IDM_VIEW_HIGHLIGHTCURRENTSELECTION_WORDIFNOSELECTION:
+      iHighlightSelection = HCS_WORD_IF_NO_SELECTION;
+      n2e_SelectionUpdate(SUM_INIT);
+      break;
+
+    case IDM_VIEW_HIGHLIGHTCURRENTSELECTION_EDITWORD:
+      bEditSelectionScope = !bEditSelectionScope;
+      break;
+    // [/2e]
+
 
   }
   return (0);
@@ -5466,6 +5502,8 @@ LRESULT MsgNotify(HWND hwnd, WPARAM wParam, LPARAM lParam)
               }
             }
           }
+          // [2e]: ScrollYCaretPolicy affecting some input commands but not others #294
+          EditSelectEx(hwndEdit, SciCall_GetAnchor(), SciCall_GetCurrentPos());
           break;
 
         case SCN_ZOOM:
@@ -5484,11 +5522,7 @@ LRESULT MsgNotify(HWND hwnd, WPARAM wParam, LPARAM lParam)
 
         // [2e]: "Scroll margin"-feature
         case SCN_CARETMOVED:
-          {
-            const int iSelPos = SendMessage(hwndEdit, SCI_GETCURRENTPOS, 0, 0);
-            const int iSelAnchor = SendMessage(hwndEdit, SCI_GETANCHOR, 0, 0);
-            EditSelectEx(hwndEdit, iSelAnchor, iSelPos);
-          }
+          EditSelectEx(hwndEdit, SciCall_GetAnchor(), SciCall_GetCurrentPos());
           break;
         // [/2e]
 
@@ -5870,8 +5904,8 @@ void LoadSettings()
   IniSectionGetString(pIniSection, L"FileDlgFilters", L"",
                       tchFileDlgFilters, COUNTOF(tchFileDlgFilters) - 2);
 
-  dwFileCheckInverval = IniSectionGetInt(pIniSection, L"FileCheckInverval", 2000);
-  dwAutoReloadTimeout = IniSectionGetInt(pIniSection, L"AutoReloadTimeout", 2000);
+  dwFileCheckInterval = IniSectionGetInt(pIniSection, L"FileCheckInterval", 500);
+  dwAutoReloadTimeout = IniSectionGetInt(pIniSection, L"AutoReloadTimeout", 100);
 
   LoadIniSection(L"Toolbar Images", pIniSection, cchIniSection);
   IniSectionGetString(pIniSection, L"BitmapDefault", L"",
@@ -6898,8 +6932,7 @@ void UpdateStatusbar()
   WCHAR tchSel[32];
   WCHAR tchSelLines[32];
   WCHAR tchPos[32];
-  WCHAR tchDocPos[256];
-
+  
   int iBytes;
   WCHAR tchBytes[64];
   WCHAR tchDocSize[256];
@@ -6940,14 +6973,19 @@ void UpdateStatusbar()
   FormatNumberStr(tchSelLines);
   lstrcpy(tchSel, tchSelLines);
 
-  if (SC_SEL_RECTANGLE != SendMessage(hwndEdit, SCI_GETSELECTIONMODE, 0, 0))
+  if (!n2e_IsRectangularSelection())
   {
-    iSel = (int)SendMessage(hwndEdit, SCI_GETSELECTIONEND, 0, 0) - (int)SendMessage(hwndEdit, SCI_GETSELECTIONSTART, 0, 0);
+    iSel = SciCall_GetSelEnd() - SciCall_GetSelStart();
     wsprintf(tchSelLines, L"%i", iSel);
     FormatNumberStr(tchSelLines);
     lstrcat(tchSel, L" L : ");
     lstrcat(tchSel, tchSelLines);
     lstrcat(tchSel, L" B");
+  }
+  else  
+  {
+    // [2e]: Update status bar selection texts #262
+    lstrcat(tchSel, L" L");
   }
   // [/2e]
 
@@ -8128,7 +8166,7 @@ void InstallFileWatching(LPCWSTR lpszFile)
     // No previous watching installed, so launch the timer first
     else
     {
-      SetTimer(hwndMain, ID_WATCHTIMER, dwFileCheckInverval, WatchTimerProc);
+      SetTimer(hwndMain, ID_WATCHTIMER, dwFileCheckInterval, WatchTimerProc);
     }
     lstrcpy(tchDirectory, lpszFile);
     PathRemoveFileSpec(tchDirectory);

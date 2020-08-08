@@ -30,7 +30,7 @@
 #define ID_SETTINGS_WORD_NAVIGATION     54
 #define IDM_FILE_OPENFOLDER             56
 #define ID_SAVEONLOSEFOCUS_DISABLED     57
-#define ID_SAVEONLOSEFOCUS_ENABLED 58
+#define ID_SAVEONLOSEFOCUS_ENABLED      58
 #define ID_SAVEONLOSEFOCUS_ENABLEDUNTILANEWFILE 59
 #define IDM_FILE_ELEVATE                60
 #define IDR_MAINWND                     100
@@ -79,6 +79,7 @@
 #define IDC_ASCIIASUTF8                 102
 #define IDC_WEBPAGE                     102
 #define IDC_POSNUM                      102
+#define IDR_DATA_LUA_LEXER              103
 #define IDD_DEFENCODING                 103
 #define IDC_FINDWORD                    103
 #define IDC_RESIZEGRIP3                 103
@@ -86,6 +87,7 @@
 #define IDC_STYLEFORE                   103
 #define IDC_AUTOSTRIPBLANKS             103
 #define IDC_ENCODINGFROMFILEVARS        103
+#define IDR_DATA_LUA_THEME              104
 #define IDD_ENCODING                    104
 #define IDC_FINDSTART                   104
 #define IDB_PICK                        104
@@ -143,9 +145,13 @@
 #define IDD_WORDWRAP                    122
 #define IDC_RADIO6                      122
 #define IDD_LONGLINES                   123
+#define IDC_SYSLINK1                    123
 #define IDD_TABSETTINGS                 124
+#define IDC_SYSLINK2                    124
 #define IDD_PAGESETUP                   125
+#define IDC_SYSLINK3                    125
 #define IDD_INFOBOX                     126
+#define IDC_SYSLINK4                    126
 #define IDD_INFOBOX2                    127
 #define IDD_INFOBOX3                    128
 #define IDD_ABOUT_3RD_PARTY             129
@@ -379,15 +385,20 @@
 #define IDM_VIEW_TOOLBAR                40440
 #define IDM_VIEW_CUSTOMIZETB            40441
 #define IDM_VIEW_STATUSBAR              40442
-#define IDM_VIEW_SAVESETTINGSNOW        40444
-#define IDM_VIEW_HIGHLIGHTCURRENTLINE   40445
-#define IDM_VIEW_HIGHLIGHTCURRENTWORD   40446
-#define IDM_VIEW_NOLANGUAGEINDICATOR    40450
-#define IDM_VIEW_SHOWLANGUAGEINDICATOR  40451
-#define IDM_VIEW_SHOWLANGUAGEINDICATORNONUS 40452
-#define IDM_VIEW_SAVESETTINGS_MODE_ALL  40453
-#define IDM_VIEW_SAVESETTINGS_MODE_RECENT   40454
-#define IDM_VIEW_SAVESETTINGS_MODE_NO   40455
+#define IDM_VIEW_SAVESETTINGSNOW        40443
+#define IDM_VIEW_HIGHLIGHTCURRENTLINE   40444
+#define IDM_VIEW_HIGHLIGHTCURRENTSELECTION_DISABLED 40445
+#define IDM_VIEW_HIGHLIGHTCURRENTSELECTION_WORD 40446
+#define IDM_VIEW_HIGHLIGHTCURRENTSELECTION_SELECTION 40447
+#define IDM_VIEW_HIGHLIGHTCURRENTSELECTION_WORDANDSELECTION 40448
+#define IDM_VIEW_HIGHLIGHTCURRENTSELECTION_WORDIFNOSELECTION 40449
+#define IDM_VIEW_HIGHLIGHTCURRENTSELECTION_EDITWORD 40450
+#define IDM_VIEW_NOLANGUAGEINDICATOR    40451
+#define IDM_VIEW_SHOWLANGUAGEINDICATOR  40452
+#define IDM_VIEW_SHOWLANGUAGEINDICATORNONUS 40453
+#define IDM_VIEW_SAVESETTINGS_MODE_ALL  40454
+#define IDM_VIEW_SAVESETTINGS_MODE_RECENT   40455
+#define IDM_VIEW_SAVESETTINGS_MODE_NO   40456
 #define IDM_HELP_ABOUT                  40500
 #define IDM_TRAY_RESTORE                40600
 #define IDM_TRAY_EXIT                   40601
@@ -467,6 +478,9 @@
 #define IDS_WARN_ICU_REGEX              50043
 #define IDS_ERR_ELEVATE                 50044
 #define IDS_ERR_MEMORY_ALLOCATION       50045
+#define IDS_ERR_FAILED_CREATE           50046
+#define IDS_ERR_LEXER_FILE_NOT_FOUND    50047
+#define IDS_ERR_LPEG_NOT_CONFIGURED     50048
 #define IDS_CMDLINEHELP                 60000
 
 // Next default values for new objects

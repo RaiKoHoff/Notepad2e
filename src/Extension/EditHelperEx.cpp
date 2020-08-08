@@ -5,6 +5,8 @@
 
 extern "C"
 {
+  #include "CommonUtils.h"
+
   extern UINT iShellMenuType;
 
   #include "Trace.h"
@@ -187,5 +189,62 @@ extern "C"
   int n2e_GetUTF8CharLength(const unsigned char ch)
   {
     return (int)Scintilla::UTF8CharLength(ch);
+  }
+
+  void n2e_ReplaceSubstring(LPSTR buf, LPCSTR from, LPCSTR to)
+  {
+    std::string str(buf);
+    const std::string strFrom(from);
+    const std::string strTo(to);
+    size_t index = 0;
+    while (1)
+    {
+      index = str.find(strFrom, index);
+      if (index == std::string::npos)
+      {
+        break;
+      }
+      str.replace(index, strFrom.length(), strTo);
+      index += std::min<int>(strFrom.length(), strTo.length());
+    }
+    lstrcpyA(buf, str.c_str());
+  }
+
+  void n2e_ReplaceSubstringFormat(LPSTR buf, LPCSTR from, LPCSTR formatTo, const int value)
+  {
+    char to[10];
+    wsprintfA(to, formatTo, value);
+    n2e_ReplaceSubstring(buf, from, to);
+  }
+
+  std::vector<SE_DATA> vectorEditSelections;
+
+  int n2e_GetEditSelectionCount()
+  {
+    return (int)vectorEditSelections.size();
+  }
+
+  void n2e_ClearEditSelections()
+  {
+    for (size_t i = 0; i < vectorEditSelections.size(); ++i)
+    {
+      SE_DATA* se = &vectorEditSelections[i];
+      if (se->original)
+      {
+        n2e_Free(se->original);
+        se->original = NULL;
+      }
+    }
+    vectorEditSelections.clear();
+  }
+
+  void n2e_AddEditSelection(LPSE_DATA pData)
+  {
+    vectorEditSelections.push_back(*pData);
+  }
+
+  LPSE_DATA n2e_GetEditSelection(const int index)
+  {
+    return &vectorEditSelections[index];
   }
 }

@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include <assert.h>
 #include <time.h>
 #include "Utils.h"
 #include "CommonUtils.h"
@@ -11,6 +12,8 @@
 #include "Scintilla.h"
 #include "Helpers.h"
 #include "SciCall.h"
+#include "SciLexer.h"
+#include "Styles.h"
 #include "Notepad2.h"
 #include "Trace.h"
 #include "Subclassing.h"
@@ -20,6 +23,7 @@
 #include "Shell32Helper.h"
 
 #define INI_SETTING_HIGHLIGHT_SELECTION L"HighlightSelection"
+#define INI_SETTING_EDIT_SELECTION_SCOPE L"EditSelectionScope"
 #define INI_SETTING_SAVE_ON_LOSE_FOCUS L"SaveOnLoseFocus"
 #define INI_SETTING_WHEEL_SCROLL L"WheelScroll"
 #define INI_SETTING_WHEEL_SCROLL_INTERVAL L"WheelScrollInterval"
@@ -37,6 +41,9 @@
 #define INI_SETTING_LANGUAGE_INDICATOR L"TitleLanguage"
 #define INI_SETTING_WORD_NAVIGATION_MODE L"WordNavigationMode"
 #define INI_SETTING_URL_ENCODE_MODE L"UrlEncodeMode"
+#ifdef LPEG_LEXER
+#define INI_SETTING_LPEG_PATH L"LPegPath"
+#endif
 
 #define N2E_WHEEL_TIMER_ID  0xFF
 #define DEFAULT_WHEEL_SCROLL_INTERVAL_MS  50
@@ -70,6 +77,9 @@ BOOL bFindWordMatchCase = FALSE;
 BOOL bFindWordWrapAround = FALSE;
 HWND hwndStatusProgressBar = NULL;
 BOOL bShowProgressBar = FALSE;
+BOOL bLPegEnabled = FALSE;
+WCHAR wchLPegHomeOrigin[MAX_PATH] = { 0 };
+WCHAR g_wchLPegHome[MAX_PATH] = { 0 };
 
 extern HWND  hwndMain;
 extern HWND  hwndEdit;
@@ -84,10 +94,12 @@ extern int iEncoding;
 extern int iOriginalEncoding;
 extern BOOL bReadOnly;
 extern long iMaxSearchDistance;
-extern BOOL bHighlightSelection;
+extern enum EHighlightCurrentSelectionMode iHighlightSelection;
+extern BOOL bEditSelectionScope;
 extern LPMRULIST pFileMRU;
-extern WCHAR g_wchWorkingDirectory[MAX_PATH];
 extern enum ESaveSettingsMode nSaveSettingsMode;
+
+LPVOID LoadDataFile(const UINT nResourceID, int* pLength);
 
 void n2e_InitInstance()
 {
@@ -189,6 +201,148 @@ void n2e_ReleaseClock()
   }
 }
 
+BOOL n2e_SaveResourceFile(const UINT nResourceID, LPCWSTR wchTargetPath)
+{
+  BOOL res = FALSE;
+  const HANDLE hFile = CreateFile(wchTargetPath, GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
+  if (hFile == INVALID_HANDLE_VALUE)
+  {
+    return res;
+  }
+  int iDataLength = 0;
+  LPVOID lpData = LoadDataFile(nResourceID, &iDataLength);
+  if (lpData && (iDataLength > 0))
+  {
+    DWORD dwBytesWritten = 0;
+    res = WriteFile(hFile, lpData, iDataLength, &dwBytesWritten, NULL) && (dwBytesWritten == iDataLength);
+    free(lpData);
+  }
+  CloseHandle(hFile);
+  if (!res)
+  {
+    DeleteFile(wchTargetPath);
+  }
+  return res;
+}
+
+BOOL n2e_InitLPegHomeDir()
+{
+#ifdef LPEG_LEXER
+  if (lstrlen(g_wchLPegHome) == 0)
+  {
+    return FALSE;
+  }
+
+  if (!PathFileExists(g_wchLPegHome) && (SHCreateDirectoryEx(NULL, g_wchLPegHome, NULL) != ERROR_SUCCESS))
+  {
+    dwLastIOError = GetLastError();
+    MsgBox(MBWARN, IDS_ERR_FAILED_CREATE, L"folder", g_wchLPegHome);
+    return FALSE;
+  }
+
+  WCHAR wchThemesFolder[MAX_PATH] = { 0 };
+  lstrcpy(wchThemesFolder, g_wchLPegHome);
+  lstrcat(wchThemesFolder, L"themes");
+  if (!PathFileExists(wchThemesFolder) && (SHCreateDirectoryEx(NULL, wchThemesFolder, NULL) != ERROR_SUCCESS))
+  {
+    dwLastIOError = GetLastError();
+    MsgBox(MBWARN, IDS_ERR_FAILED_CREATE, L"folder", wchThemesFolder);
+    return FALSE;
+  }
+
+  WCHAR wchLexerFile[MAX_PATH] = { 0 };
+  lstrcpy(wchLexerFile, g_wchLPegHome);
+  lstrcat(wchLexerFile, L"lexer.lua");
+  if (!PathFileExists(wchLexerFile) && !n2e_SaveResourceFile(IDR_DATA_LUA_LEXER, wchLexerFile))
+  {
+    dwLastIOError = GetLastError();
+    MsgBox(MBWARN, IDS_ERR_FAILED_CREATE, L"LUA file", wchLexerFile);
+    return FALSE;
+  }
+
+  WCHAR wchThemeFile[MAX_PATH] = { 0 };
+  lstrcpy(wchThemeFile, g_wchLPegHome);
+  lstrcat(wchThemeFile, L"themes\\default.lua");
+  if (!PathFileExists(wchThemeFile) && !n2e_SaveResourceFile(IDR_DATA_LUA_THEME, wchThemeFile))
+  {
+    dwLastIOError = GetLastError();
+    MsgBox(MBWARN, IDS_ERR_FAILED_CREATE, L"LUA file", wchThemeFile);
+    return FALSE;
+  }
+#endif LPEG_LEXER
+
+  return TRUE;
+}
+
+#ifdef LPEG_LEXER
+BOOL n2e_MatchLPEGLexer(LPCWSTR lpszExtension)
+{
+  extern EDITLEXER lexLPEG;
+
+  WCHAR  tch[256 + 16];
+  WCHAR  *p1, *p2;
+  lstrcpy(tch, lexLPEG.szExtensions);
+  p1 = tch;
+  while (*p1)
+  {
+    if (p2 = StrChr(p1, L';'))
+      *p2 = L'\0';
+    else
+      p2 = StrEnd(p1);
+    StrTrim(p1, L" .");
+    if (lstrcmpi(p1, lpszExtension) == 0)
+      return TRUE;
+    p1 = p2 + 1;
+  }
+  return FALSE;
+}
+
+WCHAR wchLuaLexerFile[MAX_PATH] = { 0 };
+
+BOOL n2e_UseLuaLexer(LPCWSTR lpszExt, LPBOOL pbLexerFileExists)
+{
+  LPCWSTR lpszExtension = lpszExt + 1; // skip leading dot char
+  lstrcpy(wchLuaLexerFile, g_wchLPegHome);
+  lstrcat(wchLuaLexerFile, lpszExtension);
+  lstrcat(wchLuaLexerFile, L".lua");
+
+  *pbLexerFileExists = PathFileExists(wchLuaLexerFile);
+
+  return bLPegEnabled
+    && n2e_MatchLPEGLexer(lpszExtension)
+    && *pbLexerFileExists;
+}
+
+char chLexerName[MAX_PATH] = { 0 };
+
+extern PEDITLEXER pLexCurrent;
+
+LPSTR n2e_GetLuaLexerName()
+{
+  if (!bLPegEnabled || (lstrlen(szCurFile) == 0))
+  {
+    return NULL;
+  }
+  LPCWSTR lpszExt = PathFindExtension(szCurFile);
+  BOOL bLexerFileExists = FALSE;
+  if (n2e_UseLuaLexer(lpszExt, &bLexerFileExists))
+  {
+    WideCharToMultiByte(CP_UTF8, 0, lpszExt + 1, -1, chLexerName, COUNTOF(chLexerName), NULL, NULL);
+    return chLexerName;
+  }
+  if ((wcslen(wchLuaLexerFile) > 0) && !bLexerFileExists)
+  {
+    MsgBox(MBWARN, IDS_ERR_LEXER_FILE_NOT_FOUND, wchLuaLexerFile);
+    return NULL;
+  }
+  if ((pLexCurrent->iLexer == SCLEX_LPEG) && (strlen(chLexerName) > 0) && bLexerFileExists)
+  {
+    return chLexerName;
+  }
+  return NULL;
+}
+#endif
+
 void n2e_Init(const HWND hwndEdit)
 {
   srand((UINT)GetTickCount());
@@ -199,6 +353,7 @@ void n2e_Init(const HWND hwndEdit)
   n2e_EditInit();
   n2e_Shell32Initialize();
   n2e_SubclassWindow(hwndEdit, n2e_ScintillaSubclassWndProc);
+  bLPegEnabled = n2e_InitLPegHomeDir();
 }
 
 LPCWSTR n2e_GetLastRun(LPCWSTR lpstrDefault)
@@ -237,7 +392,8 @@ void n2e_ResetSaveOnLoseFocus()
 
 void n2e_LoadINI()
 {
-  bHighlightSelection = IniGetInt(N2E_INI_SECTION, INI_SETTING_HIGHLIGHT_SELECTION, bHighlightSelection);
+  iHighlightSelection = IniGetInt(N2E_INI_SECTION, INI_SETTING_HIGHLIGHT_SELECTION, iHighlightSelection);
+  bEditSelectionScope = IniGetInt(N2E_INI_SECTION, INI_SETTING_EDIT_SELECTION_SCOPE, bEditSelectionScope);
   iSaveOnLoseFocus = IniGetInt(N2E_INI_SECTION, INI_SETTING_SAVE_ON_LOSE_FOCUS, iSaveOnLoseFocus);
   bCtrlWheelScroll = IniGetInt(N2E_INI_SECTION, INI_SETTING_WHEEL_SCROLL, bCtrlWheelScroll);
   iWheelScrollInterval = IniGetInt(N2E_INI_SECTION, INI_SETTING_WHEEL_SCROLL_INTERVAL, iWheelScrollInterval);
@@ -255,6 +411,35 @@ void n2e_LoadINI()
   iShowLanguageInTitle = IniGetInt(N2E_INI_SECTION, INI_SETTING_LANGUAGE_INDICATOR, iShowLanguageInTitle);
   iWordNavigationMode = IniGetInt(N2E_INI_SECTION, INI_SETTING_WORD_NAVIGATION_MODE, iWordNavigationMode);
   iUrlEncodeMode = IniGetInt(N2E_INI_SECTION, INI_SETTING_URL_ENCODE_MODE, iUrlEncodeMode);
+
+#ifdef LPEG_LEXER
+  IniGetString(N2E_INI_SECTION, INI_SETTING_LPEG_PATH, L"", wchLPegHomeOrigin, COUNTOF(wchLPegHomeOrigin));
+  if (lstrlen(wchLPegHomeOrigin) > 0)
+  {
+    WCHAR szBuf[MAX_PATH] = { 0 };
+    if (!ExpandEnvironmentStrings(wchLPegHomeOrigin, szBuf, COUNTOF(szBuf)))
+    {
+      lstrcpyn(szBuf, wchLPegHomeOrigin, COUNTOF(wchLPegHomeOrigin));
+    }
+    if (PathIsRelative(szBuf))
+    {
+      lstrcpy(g_wchLPegHome, g_wchWorkingDirectory);
+      PathAddBackslash(g_wchLPegHome);
+      lstrcat(g_wchLPegHome, szBuf);
+    }
+    else
+    {
+      lstrcpy(g_wchLPegHome, szBuf);
+    }
+    PathAddBackslash(g_wchLPegHome);
+    lstrcpy(szBuf, g_wchLPegHome);
+    PathCanonicalize(g_wchLPegHome, szBuf);
+  }
+  else
+  {
+    lstrcpy(wchLPegHomeOrigin, g_wchLPegHome);
+  }
+#endif
 
   if (iUsePrefixInOpenDialog != UPO_AUTO)
   {
@@ -290,7 +475,8 @@ void n2e_LoadINI()
 
 void n2e_SaveINI()
 {
-  IniSetInt(N2E_INI_SECTION, INI_SETTING_HIGHLIGHT_SELECTION, bHighlightSelection);
+  IniSetInt(N2E_INI_SECTION, INI_SETTING_HIGHLIGHT_SELECTION, iHighlightSelection);
+  IniSetInt(N2E_INI_SECTION, INI_SETTING_EDIT_SELECTION_SCOPE, bEditSelectionScope);
   IniSetInt(N2E_INI_SECTION, INI_SETTING_SAVE_ON_LOSE_FOCUS, iSaveOnLoseFocus);
   IniSetInt(N2E_INI_SECTION, INI_SETTING_WHEEL_SCROLL, bCtrlWheelScroll);
   IniSetInt(N2E_INI_SECTION, INI_SETTING_WHEEL_SCROLL_INTERVAL, iWheelScrollInterval);
@@ -308,6 +494,9 @@ void n2e_SaveINI()
   IniSetInt(N2E_INI_SECTION, INI_SETTING_LANGUAGE_INDICATOR, iShowLanguageInTitle);
   IniSetInt(N2E_INI_SECTION, INI_SETTING_WORD_NAVIGATION_MODE, iWordNavigationMode);
   IniSetInt(N2E_INI_SECTION, INI_SETTING_URL_ENCODE_MODE, iUrlEncodeMode);
+#ifdef LPEG_LEXER
+  IniSetString(N2E_INI_SECTION, INI_SETTING_LPEG_PATH, wchLPegHomeOrigin);
+#endif
 }
 
 void n2e_Release()
@@ -980,7 +1169,77 @@ int n2e_GetCurrentLanguageIndicatorMenuID()
     case LIT_SHOW_NON_US:
       return IDM_VIEW_SHOWLANGUAGEINDICATORNONUS;
     default:
+      assert(FALSE);
       return 0;
+  }
+}
+
+int n2e_GetCurrentSaveSettingsMenuID()
+{
+  switch (nSaveSettingsMode)
+  {
+  case SSM_ALL:
+    return IDM_VIEW_SAVESETTINGS_MODE_ALL;
+  case SSM_RECENT:
+    return IDM_VIEW_SAVESETTINGS_MODE_RECENT;
+  case SSM_NO:
+    return IDM_VIEW_SAVESETTINGS_MODE_NO;
+  default:
+    assert(FALSE);
+    return 0;
+  }
+}
+
+
+int n2e_GetCurrentSaveOnLoseFocusMenuID()
+{
+  switch (iSaveOnLoseFocus)
+  {
+  case SLF_DISABLED:
+    return ID_SAVEONLOSEFOCUS_DISABLED;
+  case SLF_ENABLED:
+    return ID_SAVEONLOSEFOCUS_ENABLED;
+  case SLF_ENABLED_UNTIL_NEW_FILE:
+    return ID_SAVEONLOSEFOCUS_ENABLEDUNTILANEWFILE;
+  default:
+    assert(FALSE);
+    return 0;
+  }
+}
+
+int n2e_GetCurrentHighlightCurrentSelectionMenuID()
+{
+  switch (iHighlightSelection)
+  {
+  case HCS_DISABLED:
+    return IDM_VIEW_HIGHLIGHTCURRENTSELECTION_DISABLED;
+  case HCS_WORD:
+    return IDM_VIEW_HIGHLIGHTCURRENTSELECTION_WORD;
+  case HCS_SELECTION:
+    return IDM_VIEW_HIGHLIGHTCURRENTSELECTION_SELECTION;
+  case HCS_WORD_AND_SELECTION:
+    return IDM_VIEW_HIGHLIGHTCURRENTSELECTION_WORDANDSELECTION;
+  case HCS_WORD_IF_NO_SELECTION:
+    return IDM_VIEW_HIGHLIGHTCURRENTSELECTION_WORDIFNOSELECTION;
+  default:
+    assert(FALSE);
+    return 0;
+  }
+}
+
+int n2e_GetCurrentEvalMenuID()
+{
+  switch (iEvaluateMathExpression)
+  {
+  case EEM_DISABLED:
+    return ID_SETTINGS_EVAL_DISABLED;
+  case EEM_SELECTION:
+    return ID_SETTINGS_EVAL_SELECTION;
+  case EEM_LINE:
+    return ID_SETTINGS_EVAL_LINE;
+  default:
+    assert(FALSE);
+    return 0;
   }
 }
 
@@ -1126,6 +1385,40 @@ LRESULT CALLBACK n2e_About3rdPartyRicheditWndProc(HWND hwnd, UINT uMsg, WPARAM w
     return n2e_CallOriginalWindowProc(hwnd, uMsg, wParam, lParam) & ~DLGC_HASSETSEL;
   }
   return n2e_CallOriginalWindowProc(hwnd, uMsg, wParam, lParam);
+}
+
+LPVOID LoadDataFile(const UINT nResourceID, int* pLength)
+{
+  HGLOBAL hGlob = NULL;
+  LPCVOID lpData = NULL;
+  LPVOID lpResult = NULL;
+  HRSRC hRes = FindResource(g_hInstance, MAKEINTRESOURCE(nResourceID), L"DATA");
+  if (hRes)
+  {
+    hGlob = LoadResource(g_hInstance, hRes);
+  }
+  if (hGlob)
+  {
+    lpData = LockResource(hGlob);
+  }
+  if (lpData)
+  {
+    const int size = hRes ? SizeofResource(g_hInstance, hRes) : 0;
+    if (pLength)
+    {
+      *pLength = size;
+    }
+    lpResult = (size > 0) ? malloc(*pLength) : NULL;
+    if (lpResult)
+    {
+      memcpy(lpResult, lpData, size);
+    }
+  }
+  if (hGlob)
+  {
+    FreeLibrary(g_hInstance);
+  }
+  return lpResult;
 }
 
 LPCWSTR LoadAbout3rdPartyText(int* pLength)
@@ -1306,4 +1599,72 @@ void n2e_EditJumpTo(const HWND hwnd, const int iNewLine, const int iNewCol, cons
     SciCall_SetXCaretPolicy(CARET_SLOP | CARET_EVEN, 50);
     SciCall_SetYCaretPolicy(CARET_EVEN, 0);
   }
+}
+
+HWND n2e_ToolTipCreate(const HWND hwndParent)
+{
+  return CreateWindowEx(0, TOOLTIPS_CLASS, NULL, WS_POPUP | TTS_ALWAYSTIP,
+          CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, hwndParent, NULL, NULL, NULL);
+}
+
+BOOL n2e_ToolTipAddControl(const HWND hwndToolTip, const HWND hwndControl, LPTSTR pszText)
+{
+  const HWND hwndParent = GetParent(hwndToolTip);
+  if (!hwndToolTip || !IsWindow(hwndToolTip) || !hwndParent)
+  {
+    return FALSE;
+  }
+
+  TOOLINFO ti = { 0 };
+  ti.cbSize = sizeof(ti);
+  ti.hwnd = hwndParent;
+  ti.uFlags = TTF_IDISHWND | TTF_SUBCLASS;
+  ti.uId = (UINT_PTR)hwndControl;
+  ti.lpszText = pszText;
+
+  return SendMessage(hwndToolTip, TTM_ADDTOOL, 0, (LPARAM)&ti) == TRUE;
+}
+
+BOOL n2e_ToolTipAddToolInfo(const HWND hwndToolTip, LPVOID lpToolInfo)
+{
+  const HWND hwndParent = GetParent(hwndToolTip);
+  if (!hwndToolTip || !IsWindow(hwndToolTip) || !hwndParent)
+  {
+    return FALSE;
+  }
+
+  return SendMessage(hwndToolTip, TTM_ADDTOOL, 0, (LPARAM)lpToolInfo) == TRUE;
+}
+
+BOOL n2e_ToolTipSetToolInfo(const HWND hwndToolTip, LPVOID lpToolInfo)
+{
+  const HWND hwndParent = GetParent(hwndToolTip);
+  if (!hwndToolTip || !IsWindow(hwndToolTip) || !hwndParent)
+  {
+    return FALSE;
+  }
+
+  return SendMessage(hwndToolTip, TTM_SETTOOLINFO, 0, (LPARAM)lpToolInfo) == TRUE;
+}
+
+void n2e_ToolTipTrackPosition(const HWND hwndToolTip, const POINT pt)
+{
+  const HWND hwndParent = GetParent(hwndToolTip);
+  if (!hwndToolTip || !IsWindow(hwndToolTip) || !hwndParent)
+  {
+    return;
+  }
+
+  SendMessage(hwndToolTip, TTM_TRACKPOSITION, 0, MAKELPARAM(pt.x, pt.y));
+}
+
+void n2e_ToolTipTrackActivate(const HWND hwndToolTip, const BOOL bActivate, LPVOID lpToolInfo)
+{
+  const HWND hwndParent = GetParent(hwndToolTip);
+  if (!hwndToolTip || !IsWindow(hwndToolTip) || !hwndParent)
+  {
+    return;
+  }
+
+  SendMessage(hwndToolTip, TTM_TRACKACTIVATE, bActivate, (LPARAM)lpToolInfo);
 }

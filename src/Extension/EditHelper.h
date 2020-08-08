@@ -9,7 +9,8 @@
 #define FIND_INFO_INDEX 12
 
 extern BOOL bUsePrefixInOpenDialog;
-extern BOOL bHighlightSelection;
+extern EHighlightCurrentSelectionMode iHighlightSelection;
+extern BOOL bEditSelectionScope;
 extern ESaveOnLoseFocus iSaveOnLoseFocus;
 extern BOOL bCtrlWheelScroll;
 extern BOOL bMoveCaretOnRightClick;
@@ -65,3 +66,8 @@ BOOL n2e_IsExpressionEvaluationEnabled();
 int n2e_GetExpressionTextRange(int* piStart, int* piEnd);
 
 BOOL n2e_IsFindReplaceAvailable(LPCEDITFINDREPLACE lpefr);
+
+LPCSTR n2e_FormatLineText(LPCSTR buf, const int iLineStart, const int iLineIndex,
+  LPCSTR lpPrefixAbsFormat, LPCSTR lpPrefixAbsZeroFormat,
+  LPCSTR lpPrefixRelFormat, LPCSTR lpPrefixRelZeroFormat,
+  LPCSTR lpPrefixRel0Format, LPCSTR lpPrefixRel0ZeroFormat);

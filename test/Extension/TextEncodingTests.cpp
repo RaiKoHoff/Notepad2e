@@ -1,5 +1,6 @@
 ﻿#include "stdafx.h"
 #include <assert.h>
+#include <iomanip>
 #include <Shlwapi.h>
 #include "CppUnitTest.h"
 #include "../src/Extension/Externals.h"
@@ -17,6 +18,63 @@ typedef LPCSTR (TWorkingProc)(LPCSTR, const int, const int, const int, int*);
 #define MIN_BUFFER_SIZE 8
 #define MAX_BUFFER_SIZE 65536
 #define BUFFER_TEST_COUNT 3
+
+std::wstring GetCharWString(const char ch)
+{
+  switch (ch)
+  {
+  case 10:
+    return L"\\n";
+  case 13:
+    return L"\\r";
+  case '\t':
+    return L"\\t";
+  default:
+    {
+      std::wstringstream ss;
+      if (isascii(ch) && (ch > 0x20))
+      {
+        ss << ch;
+      }
+      else
+      {
+        ss << L"0x" << std::hex << (unsigned char)ch;
+      }
+      return ss.str();
+    }
+  }
+}
+
+std::wstring GetStringDiff(const std::string& expected, const std::string& actual)
+{
+  std::wstringstream ss;
+  ss << std::endl << L"--- String difference ---" << std::endl;
+  if (expected.size() != actual.size())
+  {
+    ss << L"Expected Length: " << expected.size() << L", Actual Length: " << actual.size() << std::endl;
+  }
+  else
+  {
+    ss << L"Correct Length: " << expected.length() << std::endl;
+  }
+
+  ss << L"Offset  |   Expected   |   Actual" << std::endl;
+  const int maxLength = min(expected.size(), actual.size());
+  const int maxLines = 50;
+  int count = 1;
+  for (auto i = 0; i < maxLength; ++i)
+  {
+    if (expected[i] != actual[i])
+    {
+      ss << std::setw(9) << i << L"   " << std::setw(9) << GetCharWString(expected[i]) << L"   " << std::setw(9) << GetCharWString(actual[i]) << std::endl;
+      ++count;
+      if (count >= maxLines)
+        break;
+    }
+  }
+
+  return ss.str();
+}
 
 static void DoRecodingTest(TWorkingProc proc, const bool isEncoding, const CTestCaseData* pData, const int count, const bool testBufferSize)
 {
@@ -38,14 +96,16 @@ static void DoRecodingTest(TWorkingProc proc, const bool isEncoding, const CTest
         }
         assert(bufferSize >= bufferSizeOld);
       }
-      std::wstring errorMessage(isEncoding ? L"Encoding, " : L"Decoding, ");
-      errorMessage += info.GetErrorMessageText();
-      errorMessage += L", ";
-      errorMessage += L" source: " + CPtoUCS2(StringFromVector(info.GetPlainSource()), CP_ACP);
-      errorMessage += L"\r\n";
+
+      std::wstringstream ss;
+      ss << (isEncoding ? L"Encoding" : L"Decoding") << L"/";
+      ss << bufferSize << L"/";
+      ss << L"Target encoding: " << info.GetEncodingName() << L"/";
+
       if (isEncoding && !info.IsDecodeOnly())
       {
-        errorMessage += info.GetErrorMessageText();
+        ss << L"Source: " << CPtoUCS2(StringFromVector(info.GetPlainSource()), CP_ACP) << std::endl;
+
         int resultLength = 0;
         LPCSTR result = proc((LPCSTR)info.GetSourceText().data(),
                                 info.GetSourceText().size(),
@@ -54,11 +114,14 @@ static void DoRecodingTest(TWorkingProc proc, const bool isEncoding, const CTest
                                 &resultLength);
         if (info.GetExpectedResultText() != VectorFromString(result, resultLength))
         {
-          Assert::Fail(errorMessage.c_str(), LINE_INFO());
+          const auto msg = ss.str() + GetStringDiff(StringFromVector(info.GetExpectedResultText()), result);
+          Assert::Fail(msg.c_str());
         }
       }
       else if (!isEncoding)
       {
+        ss << L"Source: " << CPtoUCS2(StringFromVector(info.GetPlainResult()), CP_ACP) << std::endl;
+
         int resultLength = 0;
         LPCSTR result = proc((LPCSTR)info.GetExpectedResultText().data(),
                              info.GetExpectedResultText().size(),
@@ -67,7 +130,8 @@ static void DoRecodingTest(TWorkingProc proc, const bool isEncoding, const CTest
                              &resultLength);
         if (info.GetSourceText() != VectorFromString(result, resultLength))
         {
-          Assert::Fail(errorMessage.c_str(), LINE_INFO());
+          const auto msg = ss.str() + GetStringDiff(StringFromVector(info.GetSourceText()), result);
+          Assert::Fail(msg.c_str());
         }
       }
       bufferSize = bufferSizeOld;
@@ -108,9 +172,9 @@ namespace Notepad2eTests
         CTestCaseData(true, "TestFile1__src_UTF8.txt", CPI_UNICODE, "TestFile1_Hex_UnicodeLE.txt"),
         CTestCaseData(true, "TestFile1__src_UTF8.txt", CPI_UNICODE, "TestFile1_Hex_UnicodeLE_impure.txt", true, MIN_BUFFER_SIZE*30),
         CTestCaseData(true, "TestFile1__src_UTF8_big.txt", CPI_UNICODE, "TestFile1_Hex_UnicodeLE_big.txt"),
-        CTestCaseData(true, "TestFile1__src_1251.txt", CPI_DEFAULT/*no need to recode file contents*/, "TestFile1_Hex_1251.txt"),
-        CTestCaseData(true, "TestFile1__src_SHIFT-JIS.txt", CPI_DEFAULT/*no need to recode file contents*/, "TestFile1_Hex_SHIFT-JIS.txt"),
-        CTestCaseData(true, "TestFile1__src_1250.txt", CPI_DEFAULT/*no need to recode file contents*/, "TestFile1_Hex_1250.txt"),
+        CTestCaseData(true, "TestFile1__src_SHIFT-JIS.txt", CPI_DEFAULT, "TestFile1_Hex_SHIFT-JIS.txt"),
+        CTestCaseData(true, "TestFile1__src_1251.txt", CPI_DEFAULT, "TestFile1_Hex_1251.txt"),
+        CTestCaseData(true, "TestFile1__src_1250.txt", CPI_DEFAULT, "TestFile1_Hex_1250.txt"),
       };
       DoRecodingTest(EncodeStringToHex, true, &data[0], _countof(data), true/*heavy testing, use random buffer size*/);
       DoRecodingTest(DecodeHexToString, false, &data[0], _countof(data), true);
@@ -144,6 +208,8 @@ namespace Notepad2eTests
         CTestCaseData(true, "TestFile1__src_UTF8.txt", CPI_UTF8, "TestFile1_Base64_UTF8.txt"),
         CTestCaseData(true, "TestFile1__src_UTF8_big.txt", CPI_UTF8, "TestFile1_Base64_UTF8_big.txt"),
         CTestCaseData(true, "TestFile1__src_SHIFT-JIS.txt", CPI_DEFAULT, "TestFile1_Base64_SHIFT-JIS.txt"),
+        CTestCaseData(true, "TestFile1__src_1251.txt", CPI_DEFAULT, "TestFile1_Base64_1251.txt"),
+        CTestCaseData(true, "TestFile1__src_1250.txt", CPI_DEFAULT, "TestFile1_Base64_1250.txt"),
       };
       DoRecodingTest(EncodeStringToBase64, true, &data[0], _countof(data), false);
       DoRecodingTest(DecodeBase64ToString, false, &data[0], _countof(data), false);
@@ -172,6 +238,8 @@ namespace Notepad2eTests
         CTestCaseData(true, "TestFile1__src_UTF8.txt", CPI_UTF8, "TestFile1_QP_UTF8.txt"),
         CTestCaseData(true, "TestFile1__src_UTF8_big.txt", CPI_UTF8, "TestFile1_QP_UTF8_big.txt"),
         CTestCaseData(true, "TestFile1__src_SHIFT-JIS.txt", CPI_DEFAULT, "TestFile1_QP_SHIFT-JIS.txt"),
+        CTestCaseData(true, "TestFile1__src_1251.txt", CPI_DEFAULT, "TestFile1_QP_1251.txt"),
+        CTestCaseData(true, "TestFile1__src_1250.txt", CPI_DEFAULT, "TestFile1_QP_1250.txt"),
       };
       DoRecodingTest(EncodeStringToQP, true, &data[0], _countof(data), false);
       DoRecodingTest(DecodeQPToString, false, &data[0], _countof(data), false);
@@ -200,6 +268,8 @@ namespace Notepad2eTests
         CTestCaseData(true, "TestFile1__src_UTF8.txt", CPI_UTF8, "TestFile1_URL_UTF8.txt"),
         CTestCaseData(true, "TestFile1__src_UTF8_big.txt", CPI_UTF8, "TestFile1_URL_UTF8_big.txt"),
         CTestCaseData(true, "TestFile1__src_SHIFT-JIS.txt", CPI_DEFAULT, "TestFile1_URL_SHIFT-JIS.txt"),
+        CTestCaseData(true, "TestFile1__src_1251.txt", CPI_DEFAULT, "TestFile1_URL_1251.txt"),
+        CTestCaseData(true, "TestFile1__src_1250.txt", CPI_DEFAULT, "TestFile1_URL_1250.txt"),
       };
       DoRecodingTest(EncodeStringToURL, true, &data[0], _countof(data), false);
       DoRecodingTest(DecodeURLToString, false, &data[0], _countof(data), false);

@@ -39,6 +39,7 @@
 #include "Extension/DPIHelper.h"
 #include "Extension/SciCall.h"
 #include "Extension/ProcessElevationUtils.h"
+#include "Extension/UnicodeQuotes.h"
 #include "Extension/Utils.h"
 
 
@@ -2822,17 +2823,7 @@ void EditMoveDown(HWND hwnd)
 void EditModifyLines(HWND hwnd, LPCWSTR pwszPrefix, LPCWSTR pwszAppend)
 {
   char  mszPrefix1[256 * 3] = "";
-  char  mszPrefix2[256 * 3] = "";
-  BOOL  bPrefixNum = FALSE;
-  int   iPrefixNum = 0;
-  int   iPrefixNumWidth = 1;
-  char *pszPrefixNumPad = "";
   char  mszAppend1[256 * 3] = "";
-  char  mszAppend2[256 * 3] = "";
-  BOOL  bAppendNum = FALSE;
-  int   iAppendNum = 0;
-  int   iAppendNumWidth = 1;
-  char *pszAppendNumPad = "";
   int   mbcp;
 
   int iSelStart = SciCall_GetSelStart();
@@ -2857,8 +2848,6 @@ void EditModifyLines(HWND hwnd, LPCWSTR pwszPrefix, LPCWSTR pwszAppend)
 
   if (!n2e_ShowPromptIfSelectionModeIsRectangle(hwnd))
   {
-    char *p;
-    int  i;
 
     int iLine;
 
@@ -2871,155 +2860,31 @@ void EditModifyLines(HWND hwnd, LPCWSTR pwszPrefix, LPCWSTR pwszAppend)
         iLineEnd--;
     }
 
-    if (lstrlenA(mszPrefix1))
-    {
-
-      p = mszPrefix1;
-      while (!bPrefixNum && (p = StrStrA(p, "$(")))
-      {
-
-        if (StrCmpNA(p, "$(I)", CSTRLEN("$(I)")) == 0)
-        {
-          *p = 0;
-          StrCpyA(mszPrefix2, p + CSTRLEN("$(I)"));
-          bPrefixNum = TRUE;
-          iPrefixNum = 0;
-          for (i = iLineEnd - iLineStart; i >= 10; i = i / 10)
-            iPrefixNumWidth++;
-          pszPrefixNumPad = "";
-        }
-
-        else if (StrCmpNA(p, "$(0I)", CSTRLEN("$(0I)")) == 0)
-        {
-          *p = 0;
-          StrCpyA(mszPrefix2, p + CSTRLEN("$(0I)"));
-          bPrefixNum = TRUE;
-          iPrefixNum = 0;
-          for (i = iLineEnd - iLineStart; i >= 10; i = i / 10)
-            iPrefixNumWidth++;
-          pszPrefixNumPad = "0";
-        }
-
-        else if (StrCmpNA(p, "$(N)", CSTRLEN("$(N)")) == 0)
-        {
-          *p = 0;
-          StrCpyA(mszPrefix2, p + CSTRLEN("$(N)"));
-          bPrefixNum = TRUE;
-          iPrefixNum = 1;
-          for (i = iLineEnd - iLineStart + 1; i >= 10; i = i / 10)
-            iPrefixNumWidth++;
-          pszPrefixNumPad = "";
-        }
-        else if (StrCmpNA(p, "$(0N)", CSTRLEN("$(0N)")) == 0)
-        {
-          *p = 0;
-          StrCpyA(mszPrefix2, p + CSTRLEN("$(0N)"));
-          bPrefixNum = TRUE;
-          iPrefixNum = 1;
-          for (i = iLineEnd - iLineStart + 1; i >= 10; i = i / 10)
-            iPrefixNumWidth++;
-          pszPrefixNumPad = "0";
-        }
-
-        else if (StrCmpNA(p, "$(L)", CSTRLEN("$(L)")) == 0)
-        {
-          *p = 0;
-          StrCpyA(mszPrefix2, p + CSTRLEN("$(L)"));
-          bPrefixNum = TRUE;
-          iPrefixNum = iLineStart + 1;
-          for (i = iLineEnd + 1; i >= 10; i = i / 10)
-            iPrefixNumWidth++;
-          pszPrefixNumPad = "";
-        }
-
-        else if (StrCmpNA(p, "$(0L)", CSTRLEN("$(0L)")) == 0)
-        {
-          *p = 0;
-          StrCpyA(mszPrefix2, p + CSTRLEN("$(0L)"));
-          bPrefixNum = TRUE;
-          iPrefixNum = iLineStart + 1;
-          for (i = iLineEnd + 1; i >= 10; i = i / 10)
-            iPrefixNumWidth++;
-          pszPrefixNumPad = "0";
-        }
-        p += CSTRLEN("$(");
-      }
-    }
-
-    if (lstrlenA(mszAppend1))
-    {
-
-      p = mszAppend1;
-      while (!bAppendNum && (p = StrStrA(p, "$(")))
-      {
-
-        if (StrCmpNA(p, "$(I)", CSTRLEN("$(I)")) == 0)
-        {
-          *p = 0;
-          StrCpyA(mszAppend2, p + CSTRLEN("$(I)"));
-          bAppendNum = TRUE;
-          iAppendNum = 0;
-          for (i = iLineEnd - iLineStart; i >= 10; i = i / 10)
-            iAppendNumWidth++;
-          pszAppendNumPad = "";
-        }
-        else if (StrCmpNA(p, "$(0I)", CSTRLEN("$(0I)")) == 0)
-        {
-          *p = 0;
-          StrCpyA(mszAppend2, p + CSTRLEN("$(0I)"));
-          bAppendNum = TRUE;
-          iAppendNum = 0;
-          for (i = iLineEnd - iLineStart; i >= 10; i = i / 10)
-            iAppendNumWidth++;
-          pszAppendNumPad = "0";
-        }
-        else if (StrCmpNA(p, "$(N)", CSTRLEN("$(N)")) == 0)
-        {
-          *p = 0;
-          StrCpyA(mszAppend2, p + CSTRLEN("$(N)"));
-          bAppendNum = TRUE;
-          iAppendNum = 1;
-          for (i = iLineEnd - iLineStart + 1; i >= 10; i = i / 10)
-            iAppendNumWidth++;
-          pszAppendNumPad = "";
-        }
-
-        else if (StrCmpNA(p, "$(0N)", CSTRLEN("$(0N)")) == 0)
-        {
-          *p = 0;
-          StrCpyA(mszAppend2, p + CSTRLEN("$(0N)"));
-          bAppendNum = TRUE;
-          iAppendNum = 1;
-          for (i = iLineEnd - iLineStart + 1; i >= 10; i = i / 10)
-            iAppendNumWidth++;
-          pszAppendNumPad = "0";
-        }
-        else if (StrCmpNA(p, "$(L)", CSTRLEN("$(L)")) == 0)
-        {
-          *p = 0;
-          StrCpyA(mszAppend2, p + CSTRLEN("$(L)"));
-          bAppendNum = TRUE;
-          iAppendNum = iLineStart + 1;
-          for (i = iLineEnd + 1; i >= 10; i = i / 10)
-            iAppendNumWidth++;
-          pszAppendNumPad = "";
-        }
-
-        else if (StrCmpNA(p, "$(0L)", CSTRLEN("$(0L)")) == 0)
-        {
-          *p = 0;
-          StrCpyA(mszAppend2, p + CSTRLEN("$(0L)"));
-          bAppendNum = TRUE;
-          iAppendNum = iLineStart + 1;
-          for (i = iLineEnd + 1; i >= 10; i = i / 10)
-            iAppendNumWidth++;
-          pszAppendNumPad = "0";
-        }
-        p += CSTRLEN("$(");
-      }
-    }
-
     SendMessage(hwnd, SCI_BEGINUNDOACTION, 0, 0);
+    
+    // [2e]: Alt+M - replace all substitutions #271
+    int iPrefixAbsZeroCounter = 1;
+    int iPrefixRelZeroCounter = 1;
+    int iPrefixRel0ZeroCounter = 1;
+
+    for (int i = iLineEnd + 1; i >= 10; i = i / 10)
+      iPrefixAbsZeroCounter++;
+    for (int i = iLineEnd - iLineStart + 1; i >= 10; i = i / 10)
+      iPrefixRelZeroCounter++;
+    for (int i = iLineEnd - iLineStart; i >= 10; i = i / 10)
+      iPrefixRel0ZeroCounter++;
+
+    char chPrefixAbsFormat[10], chPrefixAbsZeroFormat[10];
+    char chPrefixRelFormat[10], chPrefixRelZeroFormat[10];
+    char chPrefixRel0Format[10], chPrefixRel0ZeroFormat[10];
+
+    wsprintfA(chPrefixAbsFormat, "%%%ii", iPrefixAbsZeroCounter);
+    wsprintfA(chPrefixAbsZeroFormat, "%%0%ii", iPrefixAbsZeroCounter);
+    wsprintfA(chPrefixRelFormat, "%%%ii", iPrefixRelZeroCounter);
+    wsprintfA(chPrefixRelZeroFormat, "%%0%ii", iPrefixRelZeroCounter);
+    wsprintfA(chPrefixRel0Format, "%%%ii", iPrefixRel0ZeroCounter);
+    wsprintfA(chPrefixRel0ZeroFormat, "%%0%ii", iPrefixRel0ZeroCounter);
+    // [/2e]
 
     for (iLine = iLineStart; iLine <= iLineEnd; iLine++)
     {
@@ -3029,16 +2894,13 @@ void EditModifyLines(HWND hwnd, LPCWSTR pwszPrefix, LPCWSTR pwszAppend)
       {
         char mszInsert[512 * 3];
         lstrcpyA(mszInsert, mszPrefix1);
-        if (bPrefixNum)
-        {
-          char tchFmt[64];
-          char tchNum[64];
-          wsprintfA(tchFmt, "%%%s%ii", pszPrefixNumPad, iPrefixNumWidth);
-          wsprintfA(tchNum, tchFmt, iPrefixNum);
-          lstrcatA(mszInsert, tchNum);
-          lstrcatA(mszInsert, mszPrefix2);
-          iPrefixNum++;
-        }
+
+        // [2e]: Alt+M - replace all substitutions #271
+        n2e_FormatLineText(mszInsert, iLineStart, iLine,
+          chPrefixAbsFormat, chPrefixAbsZeroFormat,
+          chPrefixRelFormat, chPrefixRelZeroFormat,
+          chPrefixRel0Format, chPrefixRel0ZeroFormat);
+
         iPos = (int)SendMessage(hwnd, SCI_POSITIONFROMLINE, (WPARAM)iLine, 0);
         SendMessage(hwnd, SCI_SETTARGETSTART, (WPARAM)iPos, 0);
         SendMessage(hwnd, SCI_SETTARGETEND, (WPARAM)iPos, 0);
@@ -3047,19 +2909,15 @@ void EditModifyLines(HWND hwnd, LPCWSTR pwszPrefix, LPCWSTR pwszAppend)
 
       if (lstrlen(pwszAppend))
       {
-
         char mszInsert[512 * 3];
         lstrcpyA(mszInsert, mszAppend1);
-        if (bAppendNum)
-        {
-          char tchFmt[64];
-          char tchNum[64];
-          wsprintfA(tchFmt, "%%%s%ii", pszAppendNumPad, iAppendNumWidth);
-          wsprintfA(tchNum, tchFmt, iAppendNum);
-          lstrcatA(mszInsert, tchNum);
-          lstrcatA(mszInsert, mszAppend2);
-          iAppendNum++;
-        }
+
+        // [2e]: Alt+M - replace all substitutions #271
+        n2e_FormatLineText(mszInsert, iLineStart, iLine,
+          chPrefixAbsFormat, chPrefixAbsZeroFormat,
+          chPrefixRelFormat, chPrefixRelZeroFormat,
+          chPrefixRel0Format, chPrefixRel0ZeroFormat);
+
         iPos = (int)SendMessage(hwnd, SCI_GETLINEENDPOSITION, (WPARAM)iLine, 0);
         SendMessage(hwnd, SCI_SETTARGETSTART, (WPARAM)iPos, 0);
         SendMessage(hwnd, SCI_SETTARGETEND, (WPARAM)iPos, 0);
@@ -5101,6 +4959,23 @@ INT_PTR CALLBACK EditFindReplaceDlgProcW(HWND hwnd, UINT umsg, WPARAM wParam, LP
         // [2e]: Ctrl+H: Replace input behaviour #121
         n2e_SubclassFindEditInCombo(hwnd, IDC_FINDTEXT);
         n2e_SubclassFindEditInCombo(hwnd, IDC_REPLACETEXT);
+        {
+          // [2e]: Find/Replace - add hints #274
+          const HWND hwndToolTip = n2e_ToolTipCreate(hwnd);
+          n2e_ToolTipAddControl(hwndToolTip, GetDlgItem(hwnd, IDOK), L"Select match (F3, Enter), Select from start (Ctrl+Enter), Select until (F2)");
+          n2e_ToolTipAddControl(hwndToolTip, GetDlgItem(hwnd, IDC_FINDPREV), L"Select match (Shift+F3), Select until (Shift+F2)");
+          n2e_ToolTipAddControl(hwndToolTip, GetDlgItem(hwnd, IDC_FINDTRANSFORMBS), L"Replaces escape sequences: \\a \\b \\f \\n \\r \\t \\v \\xhh \\uhhhh");
+          bIsFindDlg = (GetDlgItem(hwnd, IDC_REPLACE) == NULL);
+          if (bIsFindDlg)
+          {
+            n2e_ToolTipAddControl(hwndToolTip, GetDlgItem(hwnd, ID_GREP), L"Keep only matching lines");
+            n2e_ToolTipAddControl(hwndToolTip, GetDlgItem(hwnd, ID_UNGREP), L"Remove matching lines");
+          }
+          else
+          {
+            n2e_ToolTipAddControl(hwndToolTip, GetDlgItem(hwnd, IDC_REPLACE), L"Select match or replace and go to next (F4)");
+          }
+        }
         // [/2e]
       }
       return TRUE;
@@ -6173,7 +6048,8 @@ INT_PTR CALLBACK EditLinenumDlgProc(HWND hwnd, UINT umsg, WPARAM wParam, LPARAM 
                   iNewPos < iMaxPos)
               {
                 n2e_JumpToOffset(hwndEdit, iNewPos);
-                EndDialog(hwnd, IDOK);
+                DestroyWindow(hwnd);
+                hDlgGotoLine = NULL;
               }
               else
               {
@@ -6584,13 +6460,56 @@ INT_PTR CALLBACK EditEncloseSelectionDlgProc(HWND hwnd, UINT umsg, WPARAM wParam
   const WCHAR* _left_braces = L"<{([";
   const WCHAR* _right_braces = L">})]";
   const WCHAR* _special_symbs = L"`~!@#%^*-_+=|\\/:;\"',.?";
+
+  // [2e]: Enclose Selection - add links with quotation marks #280
+  static HFONT hFontLink = NULL;
+  const DWORD iMinLinkID_SingleQuote = 200;
+  const DWORD iMaxLinkID_SingleQuote = iMinLinkID_SingleQuote + 9;
+  const DWORD iMinLinkID_DoubleQuote = iMaxLinkID_SingleQuote + 1;
+  const DWORD iMaxLinkID_DoubleQuote = iMinLinkID_DoubleQuote + 3;
+  static DWORD dwFocusID = 0;
   // [/2e]
+
   static PENCLOSESELDATA pdata;
   switch (umsg)
   {
     DPI_CHANGED_HANDLER();
 
     case WM_INITDIALOG: {
+
+        // [2e]: Enclose Selection - add links with quotation marks #280
+        LOGFONT lf = { 0 };
+
+        if (hFontLink == NULL)
+        {
+          HDC hdc = GetDC(hwnd);
+          GetObject(hFontLink, sizeof(LOGFONT), &lf);
+          lstrcpy(lf.lfFaceName, L"Georgia");
+          lf.lfUnderline = TRUE;
+          lf.lfHeight = -MulDiv(12, GetDeviceCaps(hdc, LOGPIXELSY), 72);
+          ReleaseDC(hwnd, hdc);
+          hFontLink = CreateFontIndirect(&lf);
+        }
+
+        for (DWORD dwId = iMinLinkID_SingleQuote; dwId <= iMaxLinkID_SingleQuote; ++dwId)
+        {
+          WCHAR linkText[] = L"<a>X</a>";
+          linkText[3] = lpwstrUnicodeQuotes[dwId - iMinLinkID_SingleQuote];
+          SetDlgItemTextW(hwnd, dwId, linkText);
+          SendDlgItemMessage(hwnd, dwId, WM_SETFONT, (WPARAM)hFontLink, 0);
+        }
+
+        for (DWORD dwId = iMinLinkID_DoubleQuote; dwId <= iMaxLinkID_DoubleQuote; ++dwId)
+        {
+          const int quoteIndex = (iMaxLinkID_SingleQuote - iMinLinkID_SingleQuote) + 1 + (dwId - iMinLinkID_DoubleQuote) * 2;
+          WCHAR linkText[] = L"<a>XX</a>";
+          linkText[3] = lpwstrUnicodeQuotes[quoteIndex];
+          linkText[4] = lpwstrUnicodeQuotes[quoteIndex + 1];
+          SetDlgItemTextW(hwnd, dwId, linkText);
+          SendDlgItemMessage(hwnd, dwId, WM_SETFONT, (WPARAM)hFontLink, 0);
+        }
+        // [/2e]
+
         pdata = (PENCLOSESELDATA)lParam;
         SendDlgItemMessage(hwnd, 100, EM_LIMITTEXT, 255, 0);
         SetDlgItemTextW(hwnd, 100, pdata->pwsz1);
@@ -6600,6 +6519,7 @@ INT_PTR CALLBACK EditEncloseSelectionDlgProc(HWND hwnd, UINT umsg, WPARAM wParam
         CenterDlgInParent(hwnd);
       }
       return TRUE;
+
     case WM_COMMAND:
       switch (LOWORD(wParam))
       {
@@ -6660,7 +6580,75 @@ INT_PTR CALLBACK EditEncloseSelectionDlgProc(HWND hwnd, UINT umsg, WPARAM wParam
           EndDialog(hwnd, IDCANCEL);
           break;
       }
+
+      // [2e]: Enclose Selection - add links with quotation marks #280
+      if (((LOWORD(wParam) == 100) || (LOWORD(wParam) == 101))
+          && ((HIWORD(wParam) == EN_SETFOCUS) || (HIWORD(wParam) == EN_KILLFOCUS)))
+      {
+        dwFocusID = LOWORD(wParam);
+      }
+      // [/2e]
+
       return TRUE;
+
+    // [2e]: Enclose Selection - add links with quotation marks #280
+    case WM_NOTIFY: {
+      LPNMHDR pnmhdr = (LPNMHDR)lParam;
+      switch (pnmhdr->code)
+      {
+      case NM_CLICK:
+      case NM_RETURN: {
+          const DWORD dwControlId = pnmhdr->idFrom;
+          if ((dwControlId >= iMinLinkID_SingleQuote) && (dwControlId <= iMaxLinkID_SingleQuote))
+          {
+            WCHAR wch[2] = { lpwstrUnicodeQuotes[dwControlId - iMinLinkID_SingleQuote], 0 };
+            SendDlgItemMessage(hwnd, dwFocusID, EM_REPLACESEL, (WPARAM)TRUE, (LPARAM)wch);
+            SetFocus(GetDlgItem(hwnd, dwFocusID));
+            return TRUE;
+          }
+          else if (((dwControlId >= iMinLinkID_DoubleQuote) && (dwControlId <= iMaxLinkID_DoubleQuote))
+            || (dwControlId == IDC_SYSLINK1) || (dwControlId == IDC_SYSLINK2)
+            || (dwControlId == IDC_SYSLINK3) || (dwControlId == IDC_SYSLINK4))
+          {
+            WCHAR buf1[2] = { 0 };
+            WCHAR buf2[2] = { 0 };
+            switch (dwControlId)
+            {
+            case IDC_SYSLINK1:
+              buf1[0] = lpwstrUnicodeQuotesUS[0];
+              buf2[0] = lpwstrUnicodeQuotesUS[1];
+              break;
+            case IDC_SYSLINK2:
+              buf1[0] = lpwstrUnicodeQuotesUS[2];
+              buf2[0] = lpwstrUnicodeQuotesUS[3];
+              break;
+            case IDC_SYSLINK3:
+              buf1[0] = lpwstrUnicodeQuotesRU[0];
+              buf2[0] = lpwstrUnicodeQuotesRU[1]; 
+              break;
+            case IDC_SYSLINK4:
+              buf1[0] = lpwstrUnicodeQuotesRU[2];
+              buf2[0] = lpwstrUnicodeQuotesRU[3];
+              break;
+            default:
+              {
+                const int quoteIndex = (iMaxLinkID_SingleQuote - iMinLinkID_SingleQuote) + 1 + (dwControlId - iMinLinkID_DoubleQuote) * 2;
+                buf1[0] = lpwstrUnicodeQuotes[quoteIndex];
+                buf2[0] = lpwstrUnicodeQuotes[quoteIndex + 1];
+                break;
+              }
+            }
+            SetWindowText(GetDlgItem(hwnd, 100), (LPCWSTR)&buf1);
+            SetWindowText(GetDlgItem(hwnd, 101), (LPCWSTR)&buf2);
+            SetFocus(GetDlgItem(hwnd, dwFocusID));
+            return TRUE;
+          }
+        }
+        break;
+      }
+    }
+    break;
+    // [/2e]
   }
   return FALSE;
 }

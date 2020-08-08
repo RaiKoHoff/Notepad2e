@@ -75,6 +75,7 @@ __forceinline LRESULT SciCall_##fn(type1 var1, type2 var2) {       \
 //
 DeclareSciCallR0(GetCodePage, GETCODEPAGE, int);
 DeclareSciCallR0(GetLineCount, GETLINECOUNT, int);
+DeclareSciCallR0(GetLinesOnScreen, LINESONSCREEN, int);
 DeclareSciCallR0(GetLength, GETLENGTH, int);
 DeclareSciCallR0(GetSelectionMode, GETSELECTIONMODE, int);
 DeclareSciCallR0(GetSelStart, GETSELECTIONSTART, int);
@@ -100,6 +101,12 @@ DeclareSciCallV2(FindText, FINDTEXT, int, searchFlags, struct Sci_TextToFind *, 
 DeclareSciCallV2(AddText, ADDTEXT, int, length, const char*, text);
 DeclareSciCallR2(GetText, GETTEXT, int, int, length, char*, text);
 DeclareSciCallR2(GetTextRange, GETTEXTRANGE, int, int, unused, struct Sci_TextRange*, tr);
+DeclareSciCallR2(GetWordStartPos, WORDSTARTPOSITION, int, int, pos, BOOL, onlyWordCharacters);
+DeclareSciCallR2(GetWordEndPos, WORDENDPOSITION, int, int, pos, BOOL, onlyWordCharacters);
+DeclareSciCallR2(PointXFromPosition, POINTXFROMPOSITION, int, int, unused, int, position);
+DeclareSciCallR2(PointYFromPosition, POINTYFROMPOSITION, int, int, unused, int, position);
+DeclareSciCallR0(GetFirstVisibleLine, GETFIRSTVISIBLELINE, int);
+DeclareSciCallR1(DocLineFromVisible, DOCLINEFROMVISIBLE, int, int, displayLine);
 
 DeclareSciCallV0(ChooseCaretX, CHOOSECARETX);
 
@@ -167,3 +174,7 @@ DeclareSciCallV1(EnsureVisible, ENSUREVISIBLE, int, line);
 //
 DeclareSciCallV2(SetProperty, SETPROPERTY, const char *, key, const char *, value);
 DeclareSciCallV1(SetDPI, SETDPI, DWORD, dpi);
+DeclareSciCallV2(SetLexerLanguage, SETLEXERLANGUAGE, int, unused, const char *, language);
+DeclareSciCallV2(PrivateLexerCall, PRIVATELEXERCALL, int, operation, void *, pointer);
+DeclareSciCallR0(GetDirectFunction, GETDIRECTFUNCTION, void*);
+DeclareSciCallR0(GetDirectPointer, GETDIRECTPOINTER, void*);

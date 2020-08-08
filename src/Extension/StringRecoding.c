@@ -9,6 +9,7 @@
 #include "StrToQP.h"
 #include "StrToURL.h"
 
+#define MIN_RECODING_BUFFER_SIZE 8
 #define DEFAULT_RECODING_BUFFER_SIZE 65536
 #define DEFAULT_RECODING_BUFFER_SIZE_MAX 5 * 1024 * 1024
 
@@ -225,7 +226,7 @@ void TextBuffer_NormalizeBeforeEncode(RecodingAlgorithm* pRA, TextBuffer* pTB, l
     int cbDataWide = (pTB->m_iMaxPos + 1) * sizeof(WCHAR);
     LPWSTR lpDataWide = n2e_Alloc(cbDataWide);
     cbDataWide = MultiByteToWideChar(CP_UTF8, 0, pTB->m_ptr, pTB->m_iMaxPos, lpDataWide, cbDataWide / sizeof(WCHAR)) * sizeof(WCHAR);
-    lpDataWide[pTB->m_iMaxPos] = 0;
+    lpDataWide[cbDataWide / sizeof(WCHAR)] = 0;
 
 #define INVALID_UNICODE_CHAR    0xFFFD
     LPWSTR lpInvalidCharPos = wcschr(lpDataWide, INVALID_UNICODE_CHAR);
@@ -546,7 +547,7 @@ void EncodingSettings_Free(EncodingData* pED)
 
 void Recode_Run(RecodingAlgorithm* pRA, StringSource* pSS, const int bufferSize)
 {
-  if (bufferSize > 0)
+  if (bufferSize > MIN_RECODING_BUFFER_SIZE)
   {
     iRecodingBufferSize = bufferSize;
     iRecodingBufferSizeMax = bufferSize;

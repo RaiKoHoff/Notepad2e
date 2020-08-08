@@ -1790,6 +1790,15 @@ EDITLEXER lexAHK = { SCLEX_AHK, 63036, L"AutoHotkey Script", L"ahk; ia; scriptle
         { -1, 00000, L"", L"", L"" }
       }
 };
+
+// [2e]: Lua LPeg Lexers #251
+#ifdef LPEG_LEXER
+EDITLEXER lexLPEG = { SCLEX_LPEG, 63037, L"LPEG", L"", L"", &KeyWords_NULL, {
+        { 0, 63126, L"Default", L"", L"" },
+        { -1, 00000, L"", L"", L"" }
+      }
+};
+#endif
 // [/2e]
 
 
@@ -1831,6 +1840,9 @@ PEDITLEXER pLexArray[NUMLEXERS] = {
     &lexHTML,
     &lexXML,
     &lexYaml
+#ifdef LPEG_LEXER
+    , &lexLPEG
+#endif
 };
 
 
@@ -2122,55 +2134,87 @@ void Style_SetLexer(HWND hwnd, PEDITLEXER pLexNew)
   if (!pLexNew)
     pLexNew = pLexArray[iDefaultLexer];
 
+  // [2e]: Lua LPeg Lexers #251
+#ifdef LPEG_LEXER
+  LPSTR pszLuaLexer = NULL;
+  if (pLexNew->iLexer == SCLEX_LPEG)
+  {
+    pszLuaLexer = n2e_GetLuaLexerName();
+    if (!pszLuaLexer)
+    {
+      pLexNew = &lexDefault;
+    }
+  }
+#endif
+  // [/2e]
+
   // Lexer
   SendMessage(hwnd, SCI_SETLEXER, pLexNew->iLexer, 0);
 
   iStyleBits = (int)SendMessage(hwnd, SCI_GETSTYLEBITSNEEDED, 0, 0);
   SendMessage(hwnd, SCI_SETSTYLEBITS, (WPARAM)iStyleBits, 0);
 
-  if (pLexNew->iLexer == SCLEX_XML)
-    SendMessage(hwnd, SCI_SETPROPERTY, (WPARAM) "lexer.xml.allow.scripts", (LPARAM) "1");
-  if (pLexNew->iLexer == SCLEX_CPP)
+  // [2e]: Lua LPeg Lexers #251
+#ifdef LPEG_LEXER
+  if (pLexNew->iLexer == SCLEX_LPEG)
   {
-    SendMessage(hwnd, SCI_SETPROPERTY, (WPARAM) "styling.within.preprocessor", (LPARAM) "1");
-    SendMessage(hwnd, SCI_SETPROPERTY, (WPARAM) "lexer.cpp.track.preprocessor", (LPARAM) "0");
-    SendMessage(hwnd, SCI_SETPROPERTY, (WPARAM) "lexer.cpp.update.preprocessor", (LPARAM) "0");
-    // [2e]: Highlight JS templates #207
-    SendMessage(hwnd, SCI_SETPROPERTY, (WPARAM) "lexer.cpp.backquoted.strings", (LPARAM) "1");
-  }
-  else if (pLexNew->iLexer == SCLEX_PASCAL)
-    SendMessage(hwnd, SCI_SETPROPERTY, (WPARAM) "lexer.pascal.smart.highlighting", (LPARAM) "1");
-  else if (pLexNew->iLexer == SCLEX_SQL)
-  {
-    SendMessage(hwnd, SCI_SETPROPERTY, (WPARAM) "sql.backslash.escapes", (LPARAM) "1");
-    SendMessage(hwnd, SCI_SETPROPERTY, (WPARAM) "lexer.sql.backticks.identifier", (LPARAM) "1");
-    SendMessage(hwnd, SCI_SETPROPERTY, (WPARAM) "lexer.sql.numbersign.comment", (LPARAM) "1");
-  }
-  // [2e]: #2, #10 ???
-  else if (pLexNew->iLexer == SCLEX_NSIS)
-  {
-    SciCall_SetProperty("nsis.ignorecase", "1");
-  }
-  else if (pLexNew->iLexer == SCLEX_CSS)
-  {
-    if (iCSSSettings & CSS_SASSY)
-    {
-      SendMessage(hwnd, SCI_SETPROPERTY, (WPARAM) "lexer.css.scss.language", (LPARAM) "1");
-    }
-    if (iCSSSettings & CSS_LESS)
-    {
-      SendMessage(hwnd, SCI_SETPROPERTY, (WPARAM) "lexer.css.less.language", (LPARAM) "1");
-    }
-    if (iCSSSettings & CSS_HSS)
-    {
-      SendMessage(hwnd, SCI_SETPROPERTY, (WPARAM) "lexer.css.hss.language", (LPARAM) "1");
-    }
-  }
-  // [/2e]
+    char chLPegHome[MAX_PATH] = { 0 };
+    WideCharToMultiByte(CP_UTF8, 0, g_wchLPegHome, COUNTOF(g_wchLPegHome), chLPegHome, COUNTOF(chLPegHome), NULL, NULL);
 
-  // Add KeyWord Lists
-  for (i = 0; i < 9; i++)
-    SendMessage(hwnd, SCI_SETKEYWORDS, i, (LPARAM)pLexNew->pKeyWords->pszKeyWords[i]);
+    SciCall_SetLexerLanguage(0, "lpeg");
+    SciCall_SetProperty("lexer.lpeg.home", chLPegHome);
+    SciCall_SetProperty("lexer.lpeg.color.theme", "default");
+    SciCall_PrivateLexerCall(SCI_GETDIRECTFUNCTION, SciCall_GetDirectFunction());
+    SciCall_PrivateLexerCall(SCI_SETDOCPOINTER, SciCall_GetDirectPointer());
+  }
+  else
+#endif
+  // [/2e]
+  {
+    if (pLexNew->iLexer == SCLEX_XML)
+      SendMessage(hwnd, SCI_SETPROPERTY, (WPARAM) "lexer.xml.allow.scripts", (LPARAM) "1");
+    else if (pLexNew->iLexer == SCLEX_CPP)
+    {
+      SendMessage(hwnd, SCI_SETPROPERTY, (WPARAM) "styling.within.preprocessor", (LPARAM) "1");
+      SendMessage(hwnd, SCI_SETPROPERTY, (WPARAM) "lexer.cpp.track.preprocessor", (LPARAM) "0");
+      SendMessage(hwnd, SCI_SETPROPERTY, (WPARAM) "lexer.cpp.update.preprocessor", (LPARAM) "0");
+      // [2e]: Highlight JS templates #207
+      SendMessage(hwnd, SCI_SETPROPERTY, (WPARAM) "lexer.cpp.backquoted.strings", (LPARAM) "1");
+    }
+    else if (pLexNew->iLexer == SCLEX_PASCAL)
+      SendMessage(hwnd, SCI_SETPROPERTY, (WPARAM) "lexer.pascal.smart.highlighting", (LPARAM) "1");
+    else if (pLexNew->iLexer == SCLEX_SQL)
+    {
+      SendMessage(hwnd, SCI_SETPROPERTY, (WPARAM) "sql.backslash.escapes", (LPARAM) "1");
+      SendMessage(hwnd, SCI_SETPROPERTY, (WPARAM) "lexer.sql.backticks.identifier", (LPARAM) "1");
+      SendMessage(hwnd, SCI_SETPROPERTY, (WPARAM) "lexer.sql.numbersign.comment", (LPARAM) "1");
+    }
+    // [2e]: #2, #10 ???
+    else if (pLexNew->iLexer == SCLEX_NSIS)
+    {
+      SciCall_SetProperty("nsis.ignorecase", "1");
+    }
+    else if (pLexNew->iLexer == SCLEX_CSS)
+    {
+      if (iCSSSettings & CSS_SASSY)
+      {
+        SendMessage(hwnd, SCI_SETPROPERTY, (WPARAM) "lexer.css.scss.language", (LPARAM) "1");
+      }
+      if (iCSSSettings & CSS_LESS)
+      {
+        SendMessage(hwnd, SCI_SETPROPERTY, (WPARAM) "lexer.css.less.language", (LPARAM) "1");
+      }
+      if (iCSSSettings & CSS_HSS)
+      {
+        SendMessage(hwnd, SCI_SETPROPERTY, (WPARAM) "lexer.css.hss.language", (LPARAM) "1");
+      }
+    }
+    // [/2e]
+
+    // Add KeyWord Lists
+    for (i = 0; i < 9; i++)
+      SendMessage(hwnd, SCI_SETKEYWORDS, i, (LPARAM)pLexNew->pKeyWords->pszKeyWords[i]);
+  }
 
   // Use 2nd default style
   iIdx = (bUse2ndDefaultStyle) ? 12 : 0;
@@ -2197,6 +2241,15 @@ void Style_SetLexer(HWND hwnd, PEDITLEXER pLexNew)
   if (pLexNew->iLexer != SCLEX_NULL)
     Style_SetStyles(hwnd, pLexNew->Styles[0].iStyle, pLexNew->Styles[0].szValue);    // lexer default
   SendMessage(hwnd, SCI_STYLECLEARALL, 0, 0);
+
+  // [2e]: Lua LPeg Lexers #251
+#ifdef LPEG_LEXER
+  if (pLexNew->iLexer == SCLEX_LPEG)
+  {
+    SciCall_PrivateLexerCall(SCI_SETLEXERLANGUAGE, pszLuaLexer);
+  }
+#endif
+  // [/2e]
 
   Style_SetStyles(hwnd, lexDefault.Styles[1 + iIdx].iStyle, lexDefault.Styles[1 + iIdx].szValue); // linenumber
   Style_SetStyles(hwnd, lexDefault.Styles[2 + iIdx].iStyle, lexDefault.Styles[2 + iIdx].szValue); // brace light
@@ -2712,6 +2765,7 @@ void Style_SetLexerFromFile(HWND hwnd, LPCWSTR lpszFile)
   }
 
   lpszExt = PathFindExtension(lpszFile);
+
   if (!bFound && bAutoSelect &&
     (lpszFile && lstrlen(lpszFile) > 0 && *lpszExt))
   {

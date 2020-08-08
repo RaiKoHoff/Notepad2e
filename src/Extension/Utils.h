@@ -80,6 +80,15 @@ typedef enum
 
 typedef enum
 {
+  HCS_DISABLED = 0,
+  HCS_WORD = 1,
+  HCS_SELECTION = 2,
+  HCS_WORD_AND_SELECTION = 3,
+  HCS_WORD_IF_NO_SELECTION = 4
+} EHighlightCurrentSelectionMode;
+
+typedef enum
+{
   FCP_FIRST_LINE = 0,
   FCP_LAST_LINE = 1,
   FCP_CURRENT_LINE = 2,
@@ -108,6 +117,11 @@ extern ELanguageIndicatorMode iShowLanguageInTitle;
 void n2e_InitInstance();
 void n2e_ExitInstance();
 
+BOOL n2e_InitLPegHomeDir();
+#ifdef LPEG_LEXER
+BOOL n2e_UseLuaLexer(LPCWSTR lpszExt, LPBOOL pbLexerFileExists);
+LPSTR n2e_GetLuaLexerName();
+#endif
 void n2e_Init();
 LPCWSTR n2e_GetLastRun(LPCWSTR lpstrDefault);
 void n2e_SetLastRun(LPCWSTR arg);
@@ -140,11 +154,18 @@ BOOL n2e_SetClipboardText(const HWND hwnd, const wchar_t* text);
 void n2e_UpdateWindowTitle(const HWND hwnd);
 int n2e_GetCurrentShowTitleMenuID();
 int n2e_GetCurrentLanguageIndicatorMenuID();
+int n2e_GetCurrentSaveSettingsMenuID();
+int n2e_GetCurrentSaveOnLoseFocusMenuID();
+int n2e_GetCurrentHighlightCurrentSelectionMenuID();
+int n2e_GetCurrentEvalMenuID();
 
 extern int iScrollYCaretPolicy;
 extern HWND hwndStatus;
 extern HWND hwndStatusProgressBar;
 extern BOOL bShowProgressBar;
+extern WCHAR g_wchWorkingDirectory[MAX_PATH];
+extern BOOL bLPegEnabled;
+extern WCHAR g_wchLPegHome[MAX_PATH];
 
 void n2e_CreateProgressBarInStatusBar();
 void n2e_DestroyProgressBarInStatusBar();
@@ -163,3 +184,10 @@ int n2e_GetCheckedRadioButton(const HWND hwnd, const int idFirst, const int idLa
 
 void n2e_UpdateFavLnkParams(TADDFAVPARAMS* lpParams);
 void n2e_EditJumpTo(const HWND hwnd, const int iNewLine, const int iNewCol, const int iNewSelStart, const int iNewSelEnd);
+
+HWND n2e_ToolTipCreate(const HWND hwndParent);
+BOOL n2e_ToolTipAddControl(const HWND hwndToolTip, const HWND hwndControl, LPTSTR pszText);
+BOOL n2e_ToolTipAddToolInfo(const HWND hwndToolTip, LPVOID lpToolInfo);
+BOOL n2e_ToolTipSetToolInfo(const HWND hwndToolTip, LPVOID lpToolInfo);
+void n2e_ToolTipTrackPosition(const HWND hwndToolTip, const POINT pt);
+void n2e_ToolTipTrackActivate(const HWND hwndToolTip, const BOOL bActivate, LPVOID lpToolInfo);
