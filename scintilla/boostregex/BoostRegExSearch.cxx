@@ -26,8 +26,9 @@
 #include "../scintilla/lexlib/CharacterCategory.h"
 #include "Document.h"
 #include "UniConversion.h"
-#include "BoostRegexSearch.h"
 
+#ifdef SCI_OWNREGEX
+#include "BoostRegexSearch.h"
 #ifdef ICU_BUILD
 #include <boost/regex/icu.hpp>
 #include "UTF32DocumentIterator.h"
@@ -35,6 +36,7 @@
 #include <boost/regex.hpp>
 #include "UTF8DocumentIterator.h"
 #include "AnsiDocumentIterator.h"
+#endif
 #endif
 
 #define CP_UTF8 65001
