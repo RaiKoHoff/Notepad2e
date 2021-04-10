@@ -1816,10 +1816,10 @@ Sci::Position Document::ExtendWordSelect(Sci::Position pos, int delta, bool only
  * additional movement to transit white space.
  * Used by cursor movement by word commands.
  */
-Sci::Position Document::NextWordStart(Sci::Position pos, int delta) const {
+Sci::Position Document::NextWordStart(Sci::Position pos, int delta, bool useAlternativeNavigation) const {
 	if (delta < 0) {
 		// [2e]: ctrl+arrow behavior toggle #89
-		switch (wordNavigationMode)
+		switch (CalcWordNavigationMode(useAlternativeNavigation))
 		{
 		case 0:
 			// standard navigation
@@ -1881,7 +1881,7 @@ Sci::Position Document::NextWordStart(Sci::Position pos, int delta) const {
 		}
 	} else {
 		// [2e]: ctrl+arrow behavior toggle #89
-		switch (wordNavigationMode)
+		switch (CalcWordNavigationMode(useAlternativeNavigation))
 		{
 		case 0:
 			// standard navigation
@@ -2674,7 +2674,7 @@ Sci::Position Document::ExtendStyleRange(Sci::Position pos, int delta, bool sing
 	return pos;
 }
 
-static char BraceOpposite(char ch) noexcept {
+static char BraceOpposite(char ch, bool treatQuotesAsBraces) noexcept {
 	switch (ch) {
 	case '(':
 		return ')';
@@ -2693,27 +2693,27 @@ static char BraceOpposite(char ch) noexcept {
 	case '>':
 		return '<';
 	default:
+		// [2e]: Treat quotes as braces #287
+		if (treatQuotesAsBraces && (ch == '\'' || ch == '"' || ch == '`'))
+			return ch;
+
 		return '\0';
 	}
 }
 
-// TODO: should be able to extend styled region to find matching brace
-Sci::Position Document::BraceMatch(Sci::Position position, Sci::Position /*maxReStyle*/) noexcept {
-	const char chBrace = CharAt(position);
-	const char chSeek = BraceOpposite(chBrace);
-	if (chSeek == '\0')
-		return - 1;
-	const int styBrace = StyleIndexAt(position);
-	int direction = -1;
-	if (chBrace == '(' || chBrace == '[' || chBrace == '{' || chBrace == '<')
-		direction = 1;
+// [2e]: Treat quotes as braces #287
+int Document::FindBrace(Sci::Position position, const int direction, const char chBrace, const char chSeek, const int styBrace, bool* separatorFound) const noexcept {
 	int depth = 1;
 	position = NextPosition(position, direction);
 	while ((position >= 0) && (position < LengthNoExcept())) {
 		const char chAtPos = CharAt(position);
 		const int styAtPos = StyleIndexAt(position);
+
+		if (separatorFound && ((chAtPos == '\r') || (chAtPos == '\n') || (chAtPos == '=')))
+			*separatorFound = true;
+
 		if ((position > GetEndStyled()) || (styAtPos == styBrace)) {
-			if (chAtPos == chBrace)
+			if ((chBrace != chSeek) && (chAtPos == chBrace))
 				depth++;
 			if (chAtPos == chSeek)
 				depth--;
@@ -2725,13 +2725,72 @@ Sci::Position Document::BraceMatch(Sci::Position position, Sci::Position /*maxRe
 		if (position == positionBeforeMove)
 			break;
 	}
-	return - 1;
+	return -1;
+}
+// [/2e]
+
+// TODO: should be able to extend styled region to find matching brace
+Sci::Position Document::BraceMatch(Sci::Position position, bool treatQuotesAsBraces) noexcept {
+	const char chBrace = CharAt(position);
+	const char chSeek = BraceOpposite(chBrace, treatQuotesAsBraces);
+	if (chSeek == '\0')
+		return - 1;
+	const int styBrace = StyleIndexAt(position);
+	int direction = -1;
+	if (chBrace == '(' || chBrace == '[' || chBrace == '{' || chBrace == '<')
+		direction = 1;
+	// [2e]: Treat quotes as braces #287
+	else if (treatQuotesAsBraces && (chBrace == '\'' || chBrace == '"' || chBrace == '`'))
+	{
+		bool separatorForPrev = false;
+		bool separatorForNext = false;
+		const auto posPrev = FindBrace(position, -1, chBrace, chSeek, styBrace, &separatorForPrev);
+		const auto posNext = FindBrace(position, 1, chBrace, chSeek, styBrace, &separatorForNext);
+		if (posPrev >= 0 && posNext < 0)
+		{
+			return posPrev;
+		}
+		else if (posNext >= 0 && posPrev < 0)
+		{
+			return posNext;
+		}
+		else if (posPrev >= 0 && posNext >= 0)
+		{
+			Sci::Position posNearest, posAlternative;
+			bool separatorForNearest = false;
+			if (position - posPrev < posNext - position - 1)
+			{
+				posNearest = posPrev;
+				separatorForNearest = separatorForPrev;
+				posAlternative = posNext;
+			}
+			else
+			{
+				posNearest = posNext;
+				separatorForNearest = separatorForNext;
+				posAlternative = posPrev;
+			}
+			return !separatorForNearest ? posNearest : posAlternative;
+		}
+		return -1;
+	}
+	return FindBrace(position, direction, chBrace, chSeek, styBrace, nullptr);
+	// [/2e]
 }
 
 // [2e]: ctrl+arrow behavior toggle #89
 void Document::SetWordNavigationMode(const int iMode)
 {
 	wordNavigationMode = iMode;
+}
+
+// [2e]: Alt + Arrow to invert accelerated mode for single navigation #323
+int Document::CalcWordNavigationMode(const bool invertMode) const
+{
+	if (!invertMode)
+		return wordNavigationMode;
+
+	return (wordNavigationMode != 0) ? 0 : 1;
 }
 // [/2e]
 

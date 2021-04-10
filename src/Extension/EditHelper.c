@@ -14,9 +14,13 @@
 #include "StrToQP.h"
 #include "StrToURL.h"
 #include "StringRecoding.h"
+#include "Styles.h"
 #include "Subclassing.h"
 #include "Trace.h"
 #include "Utils.h"
+
+#define BRACES "()[]{}<>"
+#define BRACES_WITH_QUOTES BRACES "'\"`"
 
 WCHAR wchLastHTMLTag[0xff] = L"<tag>";
 WCHAR wchLastHTMLEndTag[0xff] = L"</tag>";
@@ -30,6 +34,9 @@ extern HWND hwndToolbar;
 extern HWND hwndMain;
 extern HWND hDlgFindReplace;
 extern int iOpenSaveFilterIndex;
+extern EDITFINDREPLACE efrData;
+extern BOOL bAlwaysOnTop;
+extern int flagAlwaysOnTop;
 
 BOOL n2e_JoinLines_InitSelection()
 {
@@ -179,7 +186,7 @@ void InsertNewLineWithPrefix(const HWND hwnd, LPCSTR pszPrefix, const BOOL bInse
 
 void n2e_EditInsertNewLine(const HWND hwnd, const BOOL insertAbove)
 {
-  if (n2e_SelectionEditStop(SES_APPLY))
+  if (n2e_SelectionEditStop(hwnd, SES_APPLY))
   {
     return;
   }
@@ -255,7 +262,7 @@ void n2e_AdjustOffset(const int pos)
 void n2e_JumpToOffset(const HWND hwnd, const int iNewPos)
 {
   n2e_AdjustOffset(iNewPos);
-  SendMessage(hwnd, SCI_GOTOPOS, (WPARAM)iNewPos, 0);
+  EditSelectEx(hwnd, iNewPos, iNewPos);
 }
 
 int n2e_FindTextImpl(const HWND hwnd, const int searchFlags, const struct TextToFind* pttf)
@@ -279,39 +286,34 @@ void n2e_FindNextWord(const HWND hwnd, LPCEDITFINDREPLACE lpref, const BOOL next
 {
   struct Sci_TextRange tr;
   struct Sci_TextToFind ttf;
-  static char* szPrevWord = NULL;
   int searchflags = 0;
   BOOL has = FALSE;
 #define _N2E_SEARCH_FOR_WORD_LIMIT 0x100
   N2E_TRACE(L"look for next(%d) word", next);
   ZeroMemory(&ttf, sizeof(ttf));
   ttf.lpstrText = 0;
-  const int cpos = SendMessage(hwnd, SCI_GETCURRENTPOS, 0, 0);
-  const int doclen = SendMessage(hwnd, SCI_GETTEXTLENGTH, 0, 0);
-  tr.chrg.cpMin = SendMessage(hwnd, SCI_WORDSTARTPOSITION, cpos, TRUE);
-  tr.chrg.cpMax = SendMessage(hwnd, SCI_WORDENDPOSITION, cpos, TRUE);
+  const int cpos = SciCall_GetCurrentPos();
+  const int doclen = SciCall_GetLength();
+  if (SciCall_GetSelEnd() - SciCall_GetSelStart() > 0)
+  {
+    tr.chrg.cpMin = SciCall_GetSelStart();
+    tr.chrg.cpMax = SciCall_GetSelEnd();
+    searchflags = SCFIND_NONE;
+  }
+  else
+  {
+    tr.chrg.cpMin = SciCall_GetWordStartPos(cpos, TRUE);
+    tr.chrg.cpMax = SciCall_GetWordEndPos(cpos, TRUE);
+    searchflags = SCFIND_WHOLEWORD;
+  }
   int wlen = tr.chrg.cpMax - tr.chrg.cpMin;
   int res = 0;
 
   tr.lpstrText = (char*)n2e_Alloc(wlen + 1);
-  SendMessage(hwnd, SCI_GETTEXTRANGE, 0, (LPARAM)&tr);
-
-  const int iSelCount = (int)SendMessage(hwnd, SCI_GETSELECTIONEND, 0, 0) -
-                        (int)SendMessage(hwnd, SCI_GETSELECTIONSTART, 0, 0);
+  SciCall_GetTextRange(0, &tr);
 
   n2e_Free(tr.lpstrText);
 
-  if (iSelCount > 0)
-  {
-    const size_t prevWordLength = szPrevWord ? strlen(szPrevWord) + 1 : 0;
-    if (szPrevWord && (prevWordLength > 0))
-    {
-      tr.lpstrText = (char*)n2e_Alloc(prevWordLength);
-      lstrcpynA(tr.lpstrText, szPrevWord, prevWordLength);
-      ttf.lpstrText = tr.lpstrText;
-      res = 1;
-    }
-  }
   if (res == 0)
   {
     has = wlen > 0;
@@ -319,8 +321,8 @@ void n2e_FindNextWord(const HWND hwnd, LPCEDITFINDREPLACE lpref, const BOOL next
     // look up for new word for search
     if (!has)
     {
-      tr.chrg.cpMin = next ? cpos : max(cpos - _N2E_SEARCH_FOR_WORD_LIMIT, 0);
-      tr.chrg.cpMax = next ? min(cpos + _N2E_SEARCH_FOR_WORD_LIMIT, doclen) : cpos;
+      tr.chrg.cpMin = cpos;
+      tr.chrg.cpMax = min(cpos + _N2E_SEARCH_FOR_WORD_LIMIT, doclen);
       wlen = tr.chrg.cpMax - tr.chrg.cpMin;
       if (wlen > 0)
       {
@@ -328,12 +330,12 @@ void n2e_FindNextWord(const HWND hwnd, LPCEDITFINDREPLACE lpref, const BOOL next
         char symb;
         //
         tr.lpstrText = (char*)n2e_Alloc(wlen + 1);
-        SendMessage(hwnd, SCI_GETTEXTRANGE, 0, (LPARAM)&tr);
+        SciCall_GetTextRange(0, &tr);
         counter = 0;
         while (counter <= wlen)
         {
           ++counter;
-          symb = next ? tr.lpstrText[counter] : tr.lpstrText[wlen - counter];
+          symb = tr.lpstrText[counter];
           if (N2E_IS_LITERAL(symb))
           {
             if (!res)
@@ -345,17 +347,15 @@ void n2e_FindNextWord(const HWND hwnd, LPCEDITFINDREPLACE lpref, const BOOL next
           {
             if (res)
             {
+              tr.lpstrText[counter] = '\0';
+              ttf.lpstrText = tr.lpstrText + res;
               if (next)
               {
-                tr.chrg.cpMax = cpos + counter;
-                tr.lpstrText[counter] = '\0';
-                ttf.lpstrText = tr.lpstrText + res;
+                tr.chrg.cpMax = cpos + counter;                
               }
               else
               {
-                tr.chrg.cpMin = cpos - res;
-                tr.lpstrText[wlen - res + 1] = '\0';
-                ttf.lpstrText = tr.lpstrText + wlen - counter + 1;
+                tr.chrg.cpMin = cpos;
               }
               break;
             }
@@ -366,7 +366,7 @@ void n2e_FindNextWord(const HWND hwnd, LPCEDITFINDREPLACE lpref, const BOOL next
     else
     {
       tr.lpstrText = (char*)n2e_Alloc(wlen + 1);
-      SendMessage(hwnd, SCI_GETTEXTRANGE, 0, (LPARAM)&tr);
+      SciCall_GetTextRange(0, &tr);
       ttf.lpstrText = tr.lpstrText;
       res = 1;
     }
@@ -375,6 +375,9 @@ void n2e_FindNextWord(const HWND hwnd, LPCEDITFINDREPLACE lpref, const BOOL next
   if (res)
   {
     N2E_TRACE("search for '%s' ", ttf.lpstrText);
+    n2e_FindMRUAdd(ttf.lpstrText);
+    lstrcpyA(efrData.szFind, ttf.lpstrText);
+    lstrcpyA(efrData.szFindUTF8, ttf.lpstrText);
     if (next)
     {
       ttf.chrg.cpMin = tr.chrg.cpMax;
@@ -385,7 +388,6 @@ void n2e_FindNextWord(const HWND hwnd, LPCEDITFINDREPLACE lpref, const BOOL next
       ttf.chrg.cpMin = tr.chrg.cpMin;
       ttf.chrg.cpMax = 0;
     }
-    searchflags = SCFIND_WHOLEWORD;
     if (bFindWordMatchCase)
     {
       searchflags |= SCFIND_MATCHCASE;
@@ -416,14 +418,7 @@ void n2e_FindNextWord(const HWND hwnd, LPCEDITFINDREPLACE lpref, const BOOL next
     }
     else
     {
-      SendMessage(hwnd, SCI_SETCURRENTPOS, cpos, 0);
-    }
-    if (ttf.lpstrText)
-    {
-      const char* lpstrText = ttf.lpstrText;
-      n2e_Free(szPrevWord);
-      szPrevWord = (char*)n2e_Alloc(strlen(lpstrText) + 1);
-      lstrcpynA(szPrevWord, lpstrText, strlen(lpstrText) + 1);
+      SciCall_SetCurrentPos(cpos);
     }
     if (tr.lpstrText)
     {
@@ -773,6 +768,11 @@ void n2e_UpdateFindIcon(const BOOL findOK)
 void n2e_ResetFindIcon()
 {
   n2e_UpdateFindIcon(TRUE);
+}
+
+void n2e_UpdateAlwaysOnTopButton()
+{
+  SendMessage(hwndToolbar, TB_SETSTATE, IDM_VIEW_ALWAYSONTOP, MAKELPARAM(TBSTATE_ENABLED | (((bAlwaysOnTop || flagAlwaysOnTop == 2) && flagAlwaysOnTop != 1) ? TBSTATE_PRESSED : 0), 0));
 }
 
 void n2e_EditString2Hex(const HWND hwnd)
@@ -1437,4 +1437,9 @@ LPCSTR n2e_FormatLineText(LPSTR buf, const int iLineStart, const int iLineIndex,
   n2e_ReplaceSubstringFormat(&buf[0], "$(I)", lpPrefixRel0Format, iLineIndex - iLineStart);
   n2e_ReplaceSubstringFormat(&buf[0], "$(0I)", lpPrefixRel0ZeroFormat, iLineIndex - iLineStart);
   return buf;
+}
+
+LPCSTR n2e_GetBracesList()
+{
+  return bTreatQuotesAsBraces ? BRACES_WITH_QUOTES : BRACES;
 }

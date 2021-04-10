@@ -4,6 +4,7 @@
 #include "Utils.h"
 #include "CommonUtils.h"
 #include "Dialogs.h"
+#include "DPIHelperScintilla.h"
 #include "ExtSelection.h"
 #include "EditHelper.h"
 #include "InlineProgressBarCtrl.h"
@@ -41,6 +42,9 @@
 #define INI_SETTING_LANGUAGE_INDICATOR L"TitleLanguage"
 #define INI_SETTING_WORD_NAVIGATION_MODE L"WordNavigationMode"
 #define INI_SETTING_URL_ENCODE_MODE L"UrlEncodeMode"
+#define INI_SETTING_FIND_SELECT_TO_MATCHING_BRACE_MODE L"FindSelectToMatchingBraceMode"
+#define INI_SETTING_TREAT_QUOTES_AS_BRACES L"TreatQuotesAsBraces"
+#define INI_SETTING_USE_DIRECTWRITE L"UseDirectWrite"
 #ifdef LPEG_LEXER
 #define INI_SETTING_LPEG_PATH L"LPegPath"
 #endif
@@ -73,8 +77,11 @@ UINT iShellMenuType = CMF_EXPLORE;
 BOOL bHighlightLineIfWindowInactive = FALSE;
 long iMaxSearchDistance = DEFAULT_MAX_SEARCH_DISTANCE_KB * BYTES_IN_KB;
 EScrollYCaretPolicy iScrollYCaretPolicy = SCP_LEGACY;
+EFindSelectToMatchingBraceMode iFindSelectToMatchingBraceMode = FSM_LEGACY;
+BOOL bTreatQuotesAsBraces = FALSE;
 BOOL bFindWordMatchCase = FALSE;
 BOOL bFindWordWrapAround = FALSE;
+BOOL bUseDirectWrite = TRUE;
 HWND hwndStatusProgressBar = NULL;
 BOOL bShowProgressBar = FALSE;
 BOOL bLPegEnabled = FALSE;
@@ -97,14 +104,20 @@ extern long iMaxSearchDistance;
 extern enum EHighlightCurrentSelectionMode iHighlightSelection;
 extern BOOL bEditSelectionScope;
 extern LPMRULIST pFileMRU;
+extern LPMRULIST mruFind;
 extern enum ESaveSettingsMode nSaveSettingsMode;
 
 LPVOID LoadDataFile(const UINT nResourceID, int* pLength);
 
+extern HWND _hwndEdit;
+
 void n2e_InitInstance()
 {
-  InitScintillaHandle(hwndEdit);
-  n2e_Init(hwndEdit);
+  n2e_Init();
+  InitScintillaHandle(_hwndEdit);
+  n2e_InitScintilla(_hwndEdit);
+  n2e_EditInit(_hwndEdit);
+  n2e_ScintillaDPIInit(_hwndEdit);
   hShellHook = SetWindowsHookEx(WH_SHELL, n2e_ShellProc, NULL, GetCurrentThreadId());
 }
 
@@ -343,17 +356,21 @@ LPSTR n2e_GetLuaLexerName()
 }
 #endif
 
-void n2e_Init(const HWND hwndEdit)
+void n2e_Init()
 {
   srand((UINT)GetTickCount());
   n2e_InitializeTrace();
   n2e_SetWheelScroll(bCtrlWheelScroll);
   n2e_InitClock();
   n2e_ResetLastRun();
-  n2e_EditInit();
   n2e_Shell32Initialize();
-  n2e_SubclassWindow(hwndEdit, n2e_ScintillaSubclassWndProc);
   bLPegEnabled = n2e_InitLPegHomeDir();
+  n2e_UpdateAlwaysOnTopButton();
+}
+
+void n2e_InitScintilla(const HWND hwnd)
+{
+  n2e_SubclassWindow(hwnd, n2e_ScintillaSubclassWndProc);
 }
 
 LPCWSTR n2e_GetLastRun(LPCWSTR lpstrDefault)
@@ -411,6 +428,9 @@ void n2e_LoadINI()
   iShowLanguageInTitle = IniGetInt(N2E_INI_SECTION, INI_SETTING_LANGUAGE_INDICATOR, iShowLanguageInTitle);
   iWordNavigationMode = IniGetInt(N2E_INI_SECTION, INI_SETTING_WORD_NAVIGATION_MODE, iWordNavigationMode);
   iUrlEncodeMode = IniGetInt(N2E_INI_SECTION, INI_SETTING_URL_ENCODE_MODE, iUrlEncodeMode);
+  iFindSelectToMatchingBraceMode = IniGetInt(N2E_INI_SECTION, INI_SETTING_FIND_SELECT_TO_MATCHING_BRACE_MODE, iFindSelectToMatchingBraceMode);
+  bTreatQuotesAsBraces = IniGetInt(N2E_INI_SECTION, INI_SETTING_TREAT_QUOTES_AS_BRACES, bTreatQuotesAsBraces);
+  bUseDirectWrite = IniGetInt(N2E_INI_SECTION, INI_SETTING_USE_DIRECTWRITE, bUseDirectWrite);
 
 #ifdef LPEG_LEXER
   IniGetString(N2E_INI_SECTION, INI_SETTING_LPEG_PATH, L"", wchLPegHomeOrigin, COUNTOF(wchLPegHomeOrigin));
@@ -450,25 +470,29 @@ void n2e_LoadINI()
     bUsePrefixInOpenDialog = TRUE;
     if (IsWindows7OrGreater())
     {
-      HKEY hKey;
-      if (SUCCEEDED(RegOpenKey(HKEY_CURRENT_USER,
-                               L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\AutoComplete",
-                               &hKey)))
+      BOOL bAutoCompleteValue = FALSE;
+      HKEY hKey = INVALID_HANDLE_VALUE;
+      if (RegOpenKeyExW(HKEY_CURRENT_USER,
+                        L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\AutoComplete",
+                        0,
+                        KEY_READ,
+                        &hKey) == ERROR_SUCCESS)
       {
         DWORD dwType = REG_SZ;
         WCHAR wchValue[MAX_PATH] = { 0 };
         DWORD cbValue = sizeof(wchValue);
-        if (SUCCEEDED(RegQueryValueEx(hKey,
-                                      L"Append Completion",
-                                      NULL,
-                                      &dwType,
-                                      (LPBYTE)&wchValue,
-                                      &cbValue)))
+        if (RegQueryValueEx(hKey,
+                            L"Append Completion",
+                            NULL,
+                            &dwType,
+                            (LPBYTE)&wchValue,
+                            &cbValue) == ERROR_SUCCESS)
         {
-          bUsePrefixInOpenDialog = (StrStrI(wchValue, L"yes") != wchValue);
+          bAutoCompleteValue = (StrStrI(wchValue, L"yes") == wchValue);
         }
         RegCloseKey(hKey);
       }
+      bUsePrefixInOpenDialog = !bAutoCompleteValue;
     }
   }
 }
@@ -494,6 +518,9 @@ void n2e_SaveINI()
   IniSetInt(N2E_INI_SECTION, INI_SETTING_LANGUAGE_INDICATOR, iShowLanguageInTitle);
   IniSetInt(N2E_INI_SECTION, INI_SETTING_WORD_NAVIGATION_MODE, iWordNavigationMode);
   IniSetInt(N2E_INI_SECTION, INI_SETTING_URL_ENCODE_MODE, iUrlEncodeMode);
+  IniSetInt(N2E_INI_SECTION, INI_SETTING_FIND_SELECT_TO_MATCHING_BRACE_MODE, iFindSelectToMatchingBraceMode);
+  IniSetInt(N2E_INI_SECTION, INI_SETTING_TREAT_QUOTES_AS_BRACES, bTreatQuotesAsBraces);
+  IniSetInt(N2E_INI_SECTION, INI_SETTING_USE_DIRECTWRITE, bUseDirectWrite);
 #ifdef LPEG_LEXER
   IniSetString(N2E_INI_SECTION, INI_SETTING_LPEG_PATH, wchLPegHomeOrigin);
 #endif
@@ -599,7 +626,7 @@ BOOL n2e_GetGotoNumber(LPTSTR temp, int *out, const BOOL hex)
   return 0;
 }
 
-void n2e_WheelScrollWorker(int lines)
+void n2e_WheelScrollWorker(HWND hwnd, int lines)
 {
   int anch, sel = 0;
   if (bWheelTimerActive)
@@ -609,14 +636,14 @@ void n2e_WheelScrollWorker(int lines)
   }
   bWheelTimerActive = TRUE;
   SetTimer(NULL, N2E_WHEEL_TIMER_ID, iWheelScrollInterval, n2e_WheelTimerProc);
-  anch = SendMessage(hwndEdit, SCI_LINESONSCREEN, 0, 0);
+  anch = SendMessage(hwnd, SCI_LINESONSCREEN, 0, 0);
   if (lines > 0)
   {
-    SendMessage(hwndEdit, SCI_LINESCROLL, 0, anch);
+    SendMessage(hwnd, SCI_LINESCROLL, 0, anch);
   }
   else if (lines < 0)
   {
-    SendMessage(hwndEdit, SCI_LINESCROLL, 0, -anch);
+    SendMessage(hwnd, SCI_LINESCROLL, 0, -anch);
   }
 }
 
@@ -826,10 +853,14 @@ UINT_PTR CALLBACK n2e_OFNHookProc(HWND hdlg, UINT uiMsg, WPARAM wParam, LPARAM l
               }
               SetWindowLongPtr(hdlg, DWLP_MSGRESULT, 1);
               N2E_TRACE("OFN OK '%S' ", buf);
-              if (len)
+              if (len && !PathIsDirectory(buf))
               {
                 WCHAR out[MAX_PATH];
                 LPWSTR final_str = buf;
+                while (final_str[0] == L'\"')
+                {
+                  ++final_str;
+                }
                 if (wcsstr(last_selected, buf))
                 {
                   final_str = last_selected;
@@ -1090,7 +1121,7 @@ BOOL n2e_Grep(void* _lpf, const BOOL grep)
   }
 
   SendMessage(lpf->hwnd, SCI_ENDUNDOACTION, 0, 0);
-  UpdateLineNumberWidth();
+  UpdateLineNumberWidth(lpf->hwnd);
   n2e_HideProgressBarInStatusBar();
   EndWaitCursor();
   return TRUE;
@@ -1667,4 +1698,61 @@ void n2e_ToolTipTrackActivate(const HWND hwndToolTip, const BOOL bActivate, LPVO
   }
 
   SendMessage(hwndToolTip, TTM_TRACKACTIVATE, bActivate, (LPARAM)lpToolInfo);
+}
+
+BOOL n2e_FindMRUAdd(LPCSTR pszNew)
+{
+  const int iLength = lstrlenA(pszNew) + 1;
+  LPVOID lpwszNew = n2e_Alloc(iLength * sizeof(WCHAR));
+  MultiByteToWideChar(CP_UTF8, 0, pszNew, iLength, lpwszNew, iLength);
+  const BOOL res = MRU_Add(mruFind, lpwszNew);
+  n2e_Free(lpwszNew);
+  return res;
+}
+
+void n2e_StrTrimA(LPSTR* psz, LPCSTR pszTrimChars)
+{
+  while (**psz && strchr(pszTrimChars, (unsigned char)**psz))
+    ++*psz;
+
+  if (**psz == 0)
+    return;
+
+  LPSTR end = *psz + strlen(*psz) - 1;
+  while (end > *psz && strchr(pszTrimChars, (unsigned char)*end))
+    --end;
+
+  end[1] = '\0';
+}
+
+void n2e_GetNumberFormat(LPNUMBERFMT lpFormat)
+{
+  static NUMBERFMT g_defaultNumberFormat = { 0 };
+  if ((lpFormat != &g_defaultNumberFormat) && !g_defaultNumberFormat.lpDecimalSep && !g_defaultNumberFormat.lpThousandSep)
+  {
+    n2e_GetNumberFormat(&g_defaultNumberFormat);
+  }
+  if (lpFormat == &g_defaultNumberFormat)
+  {
+    const LCID lcid = LOCALE_USER_DEFAULT;
+    GetLocaleInfo(LOCALE_USER_DEFAULT, LOCALE_IDIGITS | LOCALE_RETURN_NUMBER, (LPWSTR)&lpFormat->NumDigits, sizeof(lpFormat->NumDigits) / sizeof(WCHAR));
+    GetLocaleInfo(LOCALE_USER_DEFAULT, LOCALE_ILZERO | LOCALE_RETURN_NUMBER, (LPWSTR)&lpFormat->LeadingZero, sizeof(lpFormat->LeadingZero) / sizeof(WCHAR));
+    WCHAR szGrouping[32] = L"";
+    GetLocaleInfo(lcid, LOCALE_SGROUPING, szGrouping, ARRAYSIZE(szGrouping));
+    lpFormat->Grouping = (lstrcmp(szGrouping, L"3") == 0) || (lstrcmp(szGrouping, L"3;0") == 0) ? 3
+      : (lstrcmp(szGrouping, L"3;2;0") == 0) ? 32
+      : 0;
+    lpFormat->lpDecimalSep = n2e_Alloc(sizeof(WCHAR) * 16);
+    GetLocaleInfo(lcid, LOCALE_SDECIMAL, lpFormat->lpDecimalSep, 15);
+    lpFormat->lpThousandSep = n2e_Alloc(sizeof(WCHAR) * 16);
+    GetLocaleInfo(lcid, LOCALE_STHOUSAND, lpFormat->lpThousandSep, 15);
+    GetLocaleInfo(lcid, LOCALE_INEGNUMBER | LOCALE_RETURN_NUMBER, (LPWSTR)&lpFormat->NegativeOrder, sizeof(lpFormat->NegativeOrder) / sizeof(WCHAR));
+    return;
+  }
+  lpFormat->NumDigits = g_defaultNumberFormat.NumDigits;
+  lpFormat->LeadingZero = g_defaultNumberFormat.LeadingZero;
+  lpFormat->Grouping = g_defaultNumberFormat.Grouping;
+  lpFormat->lpDecimalSep = g_defaultNumberFormat.lpDecimalSep;
+  lpFormat->lpThousandSep = g_defaultNumberFormat.lpThousandSep;
+  lpFormat->NegativeOrder = g_defaultNumberFormat.NegativeOrder;
 }

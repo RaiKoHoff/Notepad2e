@@ -563,8 +563,8 @@ void ScintillaWin::EnsureRenderTarget(HDC hdc) {
 		drtp.type = D2D1_RENDER_TARGET_TYPE_DEFAULT;
 		drtp.pixelFormat.format = DXGI_FORMAT_UNKNOWN;
 		drtp.pixelFormat.alphaMode = D2D1_ALPHA_MODE_UNKNOWN;
-		drtp.dpiX = GetDpiX();
-		drtp.dpiY = GetDpiY();
+		drtp.dpiX = DEFAULT_SCREEN_DPI;
+		drtp.dpiY = DEFAULT_SCREEN_DPI;
 		drtp.usage = D2D1_RENDER_TARGET_USAGE_NONE;
 		drtp.minLevel = D2D1_FEATURE_LEVEL_DEFAULT;
 
@@ -603,9 +603,9 @@ void ScintillaWin::EnsureRenderTarget(HDC hdc) {
 			D2D1::RenderTargetProperties(
 				D2D1_RENDER_TARGET_TYPE_DEFAULT ,
 				D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED),
-				GetDpiSystemScaleFactorX(), GetDpiSystemScaleFactorY(), D2D1_RENDER_TARGET_USAGE_NONE, D2D1_FEATURE_LEVEL_DEFAULT),
+				DEFAULT_SCREEN_DPI, DEFAULT_SCREEN_DPI, D2D1_RENDER_TARGET_USAGE_NONE, D2D1_FEATURE_LEVEL_DEFAULT),
 			D2D1::HwndRenderTargetProperties(hw, size),
-			&pRenderTarget);
+			(ID2D1HwndRenderTarget**)&pRenderTarget);
 #endif
 		// Pixmaps were created to be compatible with previous render target so
 		// need to be recreated.
@@ -1208,7 +1208,7 @@ UINT CodePageFromCharSet(DWORD characterSet, UINT documentCodePage) noexcept {
 	}
 	switch (characterSet) {
 	case SC_CHARSET_ANSI: return 1252;
-	case SC_CHARSET_DEFAULT: return documentCodePage;
+	case SC_CHARSET_DEFAULT: return documentCodePage ? documentCodePage : 1252;
 	case SC_CHARSET_BALTIC: return 1257;
 	case SC_CHARSET_CHINESEBIG5: return 950;
 	case SC_CHARSET_EASTEUROPE: return 1250;
@@ -1377,7 +1377,7 @@ sptr_t ScintillaWin::WndProc(unsigned int iMessage, uptr_t wParam, sptr_t lParam
 					// Zoom! We play with the font sizes in the styles.
 					// Number of steps/line is ignored, we just care if sizing up or down
 					if (n2e_wheel_action) {
-						n2e_wheel_action(linesToScroll);
+						n2e_wheel_action(MainHWND(), linesToScroll);
 					} else {
 						if (linesToScroll < 0) {
 							KeyCommand(SCI_ZOOMIN);
@@ -1516,7 +1516,7 @@ sptr_t ScintillaWin::WndProc(unsigned int iMessage, uptr_t wParam, sptr_t lParam
 
 		case WM_CHAR:
 			if (n2e_proc_action) {
-				int ret = n2e_proc_action(wParam, WM_CHAR);
+				int ret = n2e_proc_action(MainHWND(), wParam, WM_CHAR);
 				if (ret >= 0) {
 					return ret;
 				}
@@ -1554,7 +1554,7 @@ sptr_t ScintillaWin::WndProc(unsigned int iMessage, uptr_t wParam, sptr_t lParam
 		case WM_KEYDOWN: {
 			//Platform::DebugPrintf("S keydown %d %x %x %x %x\n",iMessage, wParam, lParam, ::IsKeyDown(VK_SHIFT), ::IsKeyDown(VK_CONTROL));
 				if (n2e_proc_action) {
-					int ret = n2e_proc_action(wParam, WM_KEYDOWN);
+					int ret = n2e_proc_action(MainHWND(), wParam, WM_KEYDOWN);
 					if (ret >= 0) {
 						return ret;
 					}
@@ -3232,7 +3232,7 @@ STDMETHODIMP ScintillaWin::Drop(LPDATAOBJECT pIDataSource, DWORD grfKeyState,
 		}
 		DropAt(movePos, &data[0], data.size() - 1, *pdwEffect == DROPEFFECT_MOVE, hrRectangular == S_OK);
 		if (bAddNewLine) {
-			KeyCommand(SCI_CHARRIGHT);
+			KeyCommand(SCI_CHARLEFTEXTEND);
 		}
 
 		// Free data

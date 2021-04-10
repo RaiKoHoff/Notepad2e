@@ -80,6 +80,13 @@ typedef enum
 
 typedef enum
 {
+  FSM_LEGACY = 0,
+  FSM_IMPROVED_FIND_SELECT = 1,
+  FSM_IMPROVED_SELECT = 2
+} EFindSelectToMatchingBraceMode;
+
+typedef enum
+{
   HCS_DISABLED = 0,
   HCS_WORD = 1,
   HCS_SELECTION = 2,
@@ -113,6 +120,8 @@ typedef struct TAddToFavoritesParams
 
 extern ECSSSettingsMode iCSSSettings;
 extern ELanguageIndicatorMode iShowLanguageInTitle;
+extern EFindSelectToMatchingBraceMode iFindSelectToMatchingBraceMode;
+extern BOOL bTreatQuotesAsBraces;
 
 void n2e_InitInstance();
 void n2e_ExitInstance();
@@ -123,6 +132,7 @@ BOOL n2e_UseLuaLexer(LPCWSTR lpszExt, LPBOOL pbLexerFileExists);
 LPSTR n2e_GetLuaLexerName();
 #endif
 void n2e_Init();
+void n2e_InitScintilla(const HWND hwnd);
 LPCWSTR n2e_GetLastRun(LPCWSTR lpstrDefault);
 void n2e_SetLastRun(LPCWSTR arg);
 void n2e_ResetLastRun();
@@ -191,3 +201,8 @@ BOOL n2e_ToolTipAddToolInfo(const HWND hwndToolTip, LPVOID lpToolInfo);
 BOOL n2e_ToolTipSetToolInfo(const HWND hwndToolTip, LPVOID lpToolInfo);
 void n2e_ToolTipTrackPosition(const HWND hwndToolTip, const POINT pt);
 void n2e_ToolTipTrackActivate(const HWND hwndToolTip, const BOOL bActivate, LPVOID lpToolInfo);
+
+BOOL n2e_FindMRUAdd(LPCSTR pszNew);
+void n2e_StrTrimA(LPSTR* psz, LPCSTR pszTrimChars);
+
+void n2e_GetNumberFormat(LPNUMBERFMT lpFormat);
